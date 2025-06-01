@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "754521057099",
+    "project_id": "poolbilliard-167ad",
+    "storage_bucket": "poolbilliard-167ad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:754521057099:android:a9862b90fd9449e921eace",
+        "android_client_info": {
+          "package_name": "com.example.pool_billiard_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6bcpefwphEZ3K32fmWpFzLFA9aCUXBkg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
