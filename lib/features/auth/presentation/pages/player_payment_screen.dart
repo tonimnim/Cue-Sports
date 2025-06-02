@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/config/theme.dart';
 import '../../domain/entities/user.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -24,146 +23,112 @@ class PlayerPaymentScreen extends StatefulWidget {
   State<PlayerPaymentScreen> createState() => _PlayerPaymentScreenState();
 }
 
-class _PlayerPaymentScreenState extends State<PlayerPaymentScreen>
-    with TickerProviderStateMixin {
-  final TextEditingController _receiptController = TextEditingController();
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+class _PlayerPaymentScreenState extends State<PlayerPaymentScreen> {
   bool _isPaymentVerifying = false;
 
   @override
-  void initState() {
-    super.initState();
-    
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
-    _pulseAnimation = Tween<double>(
-      begin: 0.9,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _pulseController.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _receiptController.dispose();
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final deadline = widget.paymentDeadline ?? widget.user.createdAt.add(const Duration(days: 2));
-    final timeRemaining = deadline.difference(DateTime.now());
-    final isExpiringSoon = timeRemaining.inHours < 24;
-
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1B2A),
+      backgroundColor: AppTheme.backgroundColor,
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is PaymentCompleted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('🎉 Payment verified! Welcome to Pool Billiards!'),
-                backgroundColor: Colors.green,
+              SnackBar(
+                content: const Text(
+                    '🎉 Payment verified! Welcome to Pool Billiards!'),
+                backgroundColor: AppTheme.successColor,
+                behavior: SnackBarBehavior.floating,
               ),
             );
-            // Navigation will be handled by main app
+
+            // Navigate to home page with proper token management
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/home',
+              (route) => false,
+              arguments: {'user': widget.user},
+            );
           } else if (state is AuthError) {
             setState(() => _isPaymentVerifying = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: AppTheme.errorColor,
+                behavior: SnackBarBehavior.floating,
               ),
             );
-          } else if (state is PaymentVerifying) {
+          } else if (state is AuthLoading) {
             setState(() => _isPaymentVerifying = true);
           }
         },
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              children: [
-                // Header
-                _buildHeader(),
-                
-                const SizedBox(height: 20),
-                
-                // Deadline warning
-                if (isExpiringSoon) _buildDeadlineWarning(timeRemaining),
-                
-                const SizedBox(height: 20),
-                
-                // Main content
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        // Payment icon
-                        _buildPaymentIcon(),
-                        
-                        const SizedBox(height: 32),
-                        
-                        // Title
-                        Text(
-                          'Complete Your Registration',
-                          style: GoogleFonts.poppins(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: AppTheme.primaryGradient,
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  // Header with back button
+                  _buildHeader(),
+
+                  const SizedBox(height: 20),
+
+                  // Main content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 40),
+
+                          // App logo/icon
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.sports_basketball,
+                              size: 50,
+                              color: AppTheme.accentColor,
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Subtitle
-                        Text(
-                          'Pay the registration fee to activate your player account',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            color: const Color(0xFFE0E1DD),
+
+                          const SizedBox(height: 32),
+
+                          // Title
+                          Text(
+                            'Become A Club Player By\nPaying 500 Ksh',
+                            style: AppTheme.headingStyle.copyWith(
+                              fontSize: 28,
+                              color: AppTheme.accentColor,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        
-                        const SizedBox(height: 32),
-                        
-                        // Payment details card
-                        _buildPaymentDetailsCard(),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Instructions card
-                        _buildInstructionsCard(),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Receipt input
-                        _buildReceiptInput(),
-                        
-                        const SizedBox(height: 32),
-                        
-                        // Verify payment button
-                        _buildVerifyButton(),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Skip for now button
-                        _buildSkipButton(),
-                      ],
+
+                          const SizedBox(height: 40),
+
+                          // Mobile number input
+                          _buildMobileNumberInput(),
+
+                          const SizedBox(height: 40),
+
+                          // Pay button
+                          _buildPayButton(),
+
+                          const SizedBox(height: 20),
+
+                          // Skip button
+                          _buildSkipButton(),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -176,19 +141,18 @@ class _PlayerPaymentScreenState extends State<PlayerPaymentScreen>
       children: [
         IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios,
-            color: Colors.white,
+            color: AppTheme.textLight,
             size: 24,
           ),
         ),
         const Spacer(),
         Text(
-          'Payment Required',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+          'Back',
+          style: AppTheme.subheadingStyle.copyWith(
+            fontSize: 16,
+            color: AppTheme.textLight,
           ),
         ),
         const Spacer(),
@@ -197,382 +161,75 @@ class _PlayerPaymentScreenState extends State<PlayerPaymentScreen>
     );
   }
 
-  Widget _buildDeadlineWarning(Duration timeRemaining) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.orange.withOpacity(0.2),
-            Colors.red.withOpacity(0.2),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.orange,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.access_time,
-            color: Colors.orange,
-            size: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Payment deadline approaching!',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange,
-                  ),
-                ),
-                Text(
-                  'Time remaining: ${timeRemaining.inHours}h ${timeRemaining.inMinutes % 60}m',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentIcon() {
-    return ScaleTransition(
-      scale: _pulseAnimation,
-      child: Container(
-        width: 100,
-        height: 100,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFF4CAF50),
-              Color(0xFF8BC34A),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(50),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4CAF50).withOpacity(0.3),
-              blurRadius: 20,
-              spreadRadius: 5,
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.payment,
-          size: 50,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentDetailsCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF1B263B).withOpacity(0.8),
-            const Color(0xFF415A77).withOpacity(0.3),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF4CAF50),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'Payment Details',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          _buildPaymentRow('Amount:', 'KSh 500'),
-          _buildPaymentRow('Till Number:', '247247'),
-          _buildPaymentRow('Reference:', widget.paymentId),
-          _buildPaymentRow('Name:', widget.user.fullName),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              color: const Color(0xFFE0E1DD),
-            ),
-          ),
-          GestureDetector(
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: value));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('$label copied to clipboard'),
-                  backgroundColor: const Color(0xFF4CAF50),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFF4CAF50),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    value,
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF4CAF50),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.copy,
-                    size: 16,
-                    color: Color(0xFF4CAF50),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInstructionsCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B263B).withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF415A77),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.info_outline,
-                color: Color(0xFF71A9F7),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Payment Instructions',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF71A9F7),
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
-          ..._buildInstructionSteps(),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildInstructionSteps() {
-    final steps = [
-      'Open your M-Pesa app or dial *334#',
-      'Select "Pay Bill" option',
-      'Enter Till Number: 247247',
-      'Enter Amount: 500',
-      'Enter Reference: ${widget.paymentId}',
-      'Complete payment and get receipt',
-      'Enter receipt number below',
-    ];
-
-    return steps.asMap().entries.map((entry) {
-      final index = entry.key;
-      final step = entry.value;
-      
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: const BoxDecoration(
-                color: Color(0xFF4CAF50),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  '${index + 1}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                step,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: const Color(0xFFE0E1DD),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
-  }
-
-  Widget _buildReceiptInput() {
+  Widget _buildMobileNumberInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'M-Pesa Receipt Number',
-          style: GoogleFonts.poppins(
+          'Mobile Number',
+          style: AppTheme.bodyStyle.copyWith(
+            color: AppTheme.textLight,
             fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+            fontWeight: FontWeight.w500,
           ),
         ),
-        
-        const SizedBox(height: 8),
-        
-        TextFormField(
-          controller: _receiptController,
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            color: Colors.white,
-          ),
-          decoration: InputDecoration(
-            hintText: 'e.g., QEF4G5H6I7',
-            hintStyle: GoogleFonts.poppins(
-              color: const Color(0xFFE0E1DD).withOpacity(0.5),
-            ),
-            filled: true,
-            fillColor: const Color(0xFF1B263B).withOpacity(0.5),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF415A77),
-                width: 1,
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF415A77),
-                width: 1,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF4CAF50),
-                width: 2,
-              ),
-            ),
-            prefixIcon: const Icon(
-              Icons.receipt_long,
-              color: Color(0xFF4CAF50),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppTheme.accentColor.withOpacity(0.3),
+              width: 1,
             ),
           ),
-          textCapitalization: TextCapitalization.characters,
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
-            LengthLimitingTextInputFormatter(10),
-          ],
-        ),
-        
-        const SizedBox(height: 8),
-        
-        Text(
-          'Enter the receipt number from your M-Pesa payment confirmation SMS',
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: const Color(0xFFE0E1DD).withOpacity(0.7),
+          child: TextFormField(
+            initialValue: widget.user.phoneNumber,
+            enabled: false, // Pre-filled and disabled
+            style: AppTheme.bodyStyle.copyWith(
+              color: AppTheme.textLight,
+              fontSize: 16,
+            ),
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              suffixIcon: Icon(
+                Icons.phone,
+                color: AppTheme.accentColor,
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildVerifyButton() {
-    return SizedBox(
+  Widget _buildPayButton() {
+    return Container(
       width: double.infinity,
       height: 56,
+      decoration: BoxDecoration(
+        gradient: AppTheme.accentGradient,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.accentColor.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: ElevatedButton(
-        onPressed: _isPaymentVerifying || _receiptController.text.trim().isEmpty
-            ? null
-            : () {
-                context.read<AuthBloc>().add(
-                  VerifyPaymentEvent(
-                    paymentId: widget.paymentId,
-                    userId: widget.user.id,
-                    mpesaReceiptNumber: _receiptController.text.trim(),
-                  ),
-                );
-              },
+        onPressed: _isPaymentVerifying ? null : _handleTestPayment,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF4CAF50),
-          foregroundColor: Colors.white,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          elevation: 0,
         ),
         child: _isPaymentVerifying
             ? const SizedBox(
@@ -580,18 +237,74 @@ class _PlayerPaymentScreenState extends State<PlayerPaymentScreen>
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.textDark),
                 ),
               )
             : Text(
-                'Verify Payment',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                'Pay(Ksh 500)',
+                style: AppTheme.buttonTextStyle.copyWith(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
                 ),
               ),
       ),
     );
+  }
+
+  /// Handle test payment - auto-succeed for testing purposes
+  void _handleTestPayment() {
+    setState(() => _isPaymentVerifying = true);
+
+    // Debug logging to check user data
+    print('DEBUG: Full User Object: ${widget.user.toString()}');
+    print('DEBUG: User ID: "${widget.user.id}"');
+    print('DEBUG: User Email: "${widget.user.email}"');
+    print('DEBUG: User Full Name: "${widget.user.fullName}"');
+    print('DEBUG: User Phone: "${widget.user.phoneNumber}"');
+    print('DEBUG: Payment ID: "${widget.paymentId}"');
+
+    // Get user ID from Firebase Auth as fallback if user.id is empty
+    String userId = widget.user.id;
+    if (userId.isEmpty) {
+      // Try to get user ID from Firebase Auth current user
+      final firebaseUser = context.read<AuthBloc>().firebaseAuth.currentUser;
+      if (firebaseUser != null) {
+        userId = firebaseUser.uid;
+        print('DEBUG: Using Firebase Auth UID as fallback: "$userId"');
+      }
+    }
+
+    // Validate user ID before proceeding
+    if (userId.isEmpty) {
+      setState(() => _isPaymentVerifying = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Error: No valid user ID found. Please try logging in again.'),
+          backgroundColor: AppTheme.errorColor,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Simulate payment processing delay
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        print('DEBUG: Triggering payment verification for user: "$userId"');
+
+        // Trigger payment verification with success
+        context.read<AuthBloc>().add(
+              VerifyPaymentEvent(
+                paymentId: widget.paymentId,
+                userId: userId, // Use the validated userId
+                mpesaReceiptNumber:
+                    'TEST${DateTime.now().millisecondsSinceEpoch}', // Generate test receipt
+              ),
+            );
+      }
+    });
   }
 
   Widget _buildSkipButton() {
@@ -604,17 +317,18 @@ class _PlayerPaymentScreenState extends State<PlayerPaymentScreen>
           Navigator.of(context).pushNamedAndRemoveUntil(
             '/home',
             (route) => false,
+            arguments: {'user': widget.user},
           );
         },
         child: Text(
           'I\'ll pay later (2 days remaining)',
-          style: GoogleFonts.poppins(
+          style: AppTheme.bodyStyle.copyWith(
             fontSize: 14,
-            color: const Color(0xFFE0E1DD).withOpacity(0.7),
+            color: AppTheme.textLight.withOpacity(0.7),
             decoration: TextDecoration.underline,
           ),
         ),
       ),
     );
   }
-} 
+}

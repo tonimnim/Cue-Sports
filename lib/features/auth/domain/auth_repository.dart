@@ -10,9 +10,51 @@ import 'entities.dart';
 /// All methods return Either<Failure, T> where T is the success type
 /// This allows for consistent error handling throughout the app
 abstract class AuthRepository {
-  /// Create a pending registration record before email verification
-  /// 
-  /// Returns Either a Failure or success flag
+  /// Pending Registration Methods (New Approach - SMS Based)
+
+  /// Create a pending registration with SMS verification
+  Future<Either<Failure, bool>> createPendingUserRegistration({
+    required String fullName,
+    required String email,
+    required String phoneNumber,
+    required String password,
+    required String userType,
+    String? communityId,
+    String? paymentId,
+  });
+
+  /// Verify SMS code and complete registration (Create Firebase Auth account)
+  Future<Either<Failure, User>> verifySmsAndCompleteRegistration({
+    required String phoneNumber,
+    required String verificationCode,
+  });
+
+  /// Resend SMS verification code (with cooldown protection)
+  Future<Either<Failure, bool>> resendSmsVerificationCode({
+    required String phoneNumber,
+  });
+
+  /// Check if pending registration exists and is valid
+  Future<Either<Failure, Map<String, dynamic>?>> getPendingRegistrationStatus({
+    required String email,
+  });
+
+  /// Legacy Email Verification Methods (Deprecated - Use SMS instead)
+
+  /// Verify email and complete registration (Create Firebase Auth account)
+  Future<Either<Failure, User>> verifyEmailAndCompleteRegistration({
+    required String email,
+    required String verificationCode,
+  });
+
+  /// Resend verification email for pending registration
+  Future<Either<Failure, bool>> resendVerificationEmail({
+    required String email,
+  });
+
+  /// Legacy Methods (Keep for backward compatibility during transition)
+
+  /// Create a pending registration record before email verification (Legacy)
   Future<Either<Failure, bool>> createPendingRegistration({
     required String fullName,
     required String email,
@@ -21,29 +63,23 @@ abstract class AuthRepository {
     required String verificationCode,
     String? userType,
   });
-  
-  /// Verify an email for pending registration
-  /// 
-  /// Returns Either a Failure or the verification status
+
+  /// Verify an email for pending registration (Legacy)
   Future<Either<Failure, bool>> verifyPendingRegistration({
     required String email,
     required String verificationCode,
   });
-  
-  /// Get pending registration data
-  /// 
-  /// Returns Either a Failure or the pending registration data
+
+  /// Get pending registration data (Legacy)
   Future<Either<Failure, Map<String, dynamic>?>> getPendingRegistration({
     required String email,
   });
-  
-  /// Delete a pending registration
-  /// 
-  /// Returns Either a Failure or success flag
+
+  /// Delete a pending registration (Legacy)
   Future<Either<Failure, bool>> deletePendingRegistration({
     required String email,
   });
-  
+
   /// Register a new fan user
   ///
   /// Returns Either a Failure or the registered User
@@ -85,7 +121,7 @@ abstract class AuthRepository {
   /// Check if user is authenticated
   ///
   /// Returns Either a Failure or the current User if authenticated
-  
+
   /// Get available communities
   ///
   /// Returns Either a Failure or a List of Communities
@@ -149,27 +185,27 @@ abstract class AuthRepository {
   Future<Either<Failure, void>> sendEmailVerification({
     required String email,
   });
-  
+
   /// Get user by ID
   ///
   /// Returns Either a Failure or the User with the specified ID
   Future<Either<Failure, User>> getUserById(String userId);
-  
+
   /// Get user by phone number
   ///
   /// Returns Either a Failure or the User with the specified phone number
   Future<Either<Failure, User?>> getUserByPhone(String phoneNumber);
-  
+
   /// Delete user account
   ///
   /// Returns Either a Failure or void if successful
   Future<Either<Failure, void>> deleteUser(String userId);
-  
+
   /// Get authentication token
   ///
   /// Returns Either a Failure or the authentication token if available
   Future<Either<Failure, String?>> getAuthToken();
-  
+
   /// Check if token is valid and not expired
   ///
   /// Returns Either a Failure or boolean indicating if token is valid
@@ -200,7 +236,14 @@ abstract class AuthRepository {
   Future<Either<Failure, User>> completeEmailVerification({
     required String uid,
   });
-  
+
+  /// Verify custom email verification code
+  /// Returns Either a Failure or the verified User
+  Future<Either<Failure, User>> verifyCustomEmailCode({
+    required String email,
+    required String verificationCode,
+  });
+
   /// Clean up orphaned Firebase Auth account
   /// This is useful when a Firebase Auth account exists but no Firestore document
   Future<Either<Failure, bool>> cleanupOrphanedAccount({

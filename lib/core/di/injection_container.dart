@@ -86,48 +86,51 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 // Payment feature
 import '../../features/payment/di/payment_injection.dart';
 
+// SMS Service
+import '../../core/services/sms_service.dart';
+
 // Service locator
 final sl = GetIt.instance;
 
 /// Initialize the dependency injection container
 Future<void> init() async {
   // ======== EXTERNAL DEPENDENCIES ========
-  
+
   final sharedPreferences = await SharedPreferences.getInstance();
   sl.registerLazySingleton(() => sharedPreferences);
-  
+
   sl.registerLazySingleton(() => FirebaseAuth.instance);
   sl.registerLazySingleton(() => FirebaseFirestore.instance);
   sl.registerLazySingleton(() => FirebaseStorage.instance);
   sl.registerLazySingleton(() => InternetConnectionChecker());
-  
+
   // Register secure storage for tokens
   const secureStorage = FlutterSecureStorage();
   sl.registerLazySingleton(() => secureStorage);
-  
+
   // Register FirebaseServices as a singleton (uses factory pattern)
   sl.registerLazySingleton(() => FirebaseServices());
 
   // ======== CORE SERVICES ========
-  
+
   // Network Info
   sl.registerLazySingleton<NetworkInfo>(
     () => NetworkInfoImpl(connectionChecker: sl<InternetConnectionChecker>()),
   );
-  
+
   // Local storage
   sl.registerLazySingleton<LocalStorageService>(
     () => LocalStorageServiceImpl(sl<SharedPreferences>()),
   );
-  
+
   // Logger
   sl.registerLazySingleton<LoggerService>(() => LoggerService());
-  
+
   // Secure Storage Service for registration drafts, tokens, and user data
   sl.registerLazySingleton<SecureStorageService>(
     () => SecureStorageService(logger: sl<LoggerService>()),
   );
-  
+
   // Token Service
   sl.registerLazySingleton<TokenService>(
     () => TokenService(
@@ -135,23 +138,30 @@ Future<void> init() async {
       logger: sl<LoggerService>(),
     ),
   );
-  
+
   // Email Service
   sl.registerLazySingleton<EmailService>(
     () => EmailService(
       logger: sl<LoggerService>(),
-      emailUsername: const String.fromEnvironment('EMAIL_USERNAME', defaultValue: 'kenyapoolbilliardsclub@gmail.com'),
-      emailPassword: const String.fromEnvironment('EMAIL_PASSWORD', defaultValue: ''),
+      emailUsername: const String.fromEnvironment('EMAIL_USERNAME',
+          defaultValue: 'kenyapoolbilliardsclub@gmail.com'),
+      emailPassword:
+          const String.fromEnvironment('EMAIL_PASSWORD', defaultValue: ''),
     ),
   );
-  
+
+  // SMS Service
+  sl.registerLazySingleton<SmsService>(
+    () => SmsService(), // SMS service for verification codes
+  );
+
   // Ranking Service
   sl.registerLazySingleton<RankingService>(
     () => RankingService(logger: sl<LoggerService>()),
   );
 
   // ======== AUTH FEATURE ========
-  
+
   // Data sources
   sl.registerLazySingleton<AuthRemoteDataSource>(
     () => AuthRemoteDataSourceImpl(
@@ -161,14 +171,14 @@ Future<void> init() async {
       tokenService: sl<TokenService>(),
     ),
   );
-  
+
   sl.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSourceImpl(
       sharedPreferences: sl<SharedPreferences>(),
       logger: sl<LoggerService>(),
     ),
   );
-  
+
   // Repository
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
@@ -179,23 +189,27 @@ Future<void> init() async {
       firebaseServices: sl<FirebaseServices>(),
       tokenService: sl<TokenService>(),
       emailService: sl<EmailService>(),
+      smsService: sl<SmsService>(),
     ),
   );
-  
+
   // Use cases - using correct class names
   sl.registerLazySingleton(() => RegisterFanUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => RegisterPlayerUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => LoginUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => LogoutUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => GetCurrentUserUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => SendPasswordResetUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => VerifyPasswordResetUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(
+      () => SendPasswordResetUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(
+      () => VerifyPasswordResetUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => SendEmailVerificationUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(
+      () => SendEmailVerificationUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => VerifyEmailUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => UpdateProfileUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => UpgradeToPlayerUseCase(sl<AuthRepository>()));
-  
+
   // AuthService - Direct Firebase Authentication service
   sl.registerLazySingleton<AuthService>(
     () => AuthService(
@@ -213,7 +227,7 @@ Future<void> init() async {
       ));
 
   // ======== COMMUNITY FEATURE ========
-      
+
   // Data sources
   sl.registerLazySingleton<CommunityRemoteDataSource>(
     () => FirebaseCommunityRemoteDataSource(
@@ -221,13 +235,13 @@ Future<void> init() async {
       auth: sl<FirebaseAuth>(),
     ),
   );
-  
+
   sl.registerLazySingleton<CommunityLocalDataSource>(
     () => CommunityLocalDataSourceImpl(
       sharedPreferences: sl<SharedPreferences>(),
     ),
   );
-  
+
   // Repository
   sl.registerLazySingleton<CommunityRepository>(
     () => CommunityRepositoryImpl(
@@ -237,24 +251,39 @@ Future<void> init() async {
       logger: sl<LoggerService>(),
     ),
   );
-  
+
   // Use cases
-  sl.registerLazySingleton(() => CreateCommunityUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => GetCommunitiesUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => GetCommunityDetailsUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => GetUserCommunityUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => JoinCommunityUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => CheckCommunityMembershipUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => GetCommunitiesByLocationUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => GetTopRankedCommunitiesUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => SearchCommunitiesUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => UpdateCommunityUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => LeaveCommunityUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => GetCommunityEventsUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => GetCommunityPostsUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => RegisterForEventUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(() => UnregisterFromEventUseCase(sl<CommunityRepository>()));
-  
+  sl.registerLazySingleton(
+      () => CreateCommunityUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => GetCommunitiesUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => GetCommunityDetailsUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => GetUserCommunityUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => JoinCommunityUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => CheckCommunityMembershipUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => GetCommunitiesByLocationUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => GetTopRankedCommunitiesUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => SearchCommunitiesUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => UpdateCommunityUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => LeaveCommunityUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => GetCommunityEventsUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => GetCommunityPostsUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => RegisterForEventUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => UnregisterFromEventUseCase(sl<CommunityRepository>()));
+
   // BLoCs - Community
   sl.registerFactory(
     () => CommunityBloc(
@@ -277,35 +306,38 @@ Future<void> init() async {
   );
 
   // ======== SHOP FEATURE ========
-  
+
   // Data sources
   sl.registerLazySingleton<ShopRemoteDataSource>(
     () => ShopRemoteDataSourceImpl(sl<FirebaseServices>()),
   );
-  
+
   // Repository
   sl.registerLazySingleton<ShopRepository>(
     () => ShopRepositoryImpl(remoteDataSource: sl<ShopRemoteDataSource>()),
   );
-  
+
   // Use cases
   sl.registerLazySingleton(() => GetProductsUseCase(sl<ShopRepository>()));
-  sl.registerLazySingleton(() => GetProductsByCategoryUseCase(sl<ShopRepository>()));
-  sl.registerLazySingleton(() => GetFeaturedProductsUseCase(sl<ShopRepository>()));
-  sl.registerLazySingleton(() => GetPopularProductsUseCase(sl<ShopRepository>()));
+  sl.registerLazySingleton(
+      () => GetProductsByCategoryUseCase(sl<ShopRepository>()));
+  sl.registerLazySingleton(
+      () => GetFeaturedProductsUseCase(sl<ShopRepository>()));
+  sl.registerLazySingleton(
+      () => GetPopularProductsUseCase(sl<ShopRepository>()));
   sl.registerLazySingleton(() => GetNewArrivalsUseCase(sl<ShopRepository>()));
   sl.registerLazySingleton(() => GetProductByIdUseCase(sl<ShopRepository>()));
-  
+
   sl.registerLazySingleton(() => GetCartItemsUseCase(sl<ShopRepository>()));
   sl.registerLazySingleton(() => AddToCartUseCase(sl<ShopRepository>()));
   sl.registerLazySingleton(() => UpdateCartItemUseCase(sl<ShopRepository>()));
   sl.registerLazySingleton(() => RemoveFromCartUseCase(sl<ShopRepository>()));
   sl.registerLazySingleton(() => ClearCartUseCase(sl<ShopRepository>()));
-  
+
   sl.registerLazySingleton(() => GetUserOrdersUseCase(sl<ShopRepository>()));
   sl.registerLazySingleton(() => CreateOrderUseCase(sl<ShopRepository>()));
   sl.registerLazySingleton(() => UpdateOrderUseCase(sl<ShopRepository>()));
-  
+
   // BLoCs - Shop
   sl.registerFactory(() => ShopBloc(
         getProductsUseCase: sl<GetProductsUseCase>(),
@@ -325,28 +357,35 @@ Future<void> init() async {
       ));
 
   // Providers
-  sl.registerLazySingleton<List<CartItem>>(() => <CartItem>[]); // Cart items list
+  sl.registerLazySingleton<List<CartItem>>(
+      () => <CartItem>[]); // Cart items list
   sl.registerLazySingleton<List<ShopOrder>>(() => <ShopOrder>[]); // Orders list
 
   // ======== TOURNAMENT FEATURE ========
-  
+
   // Data sources
   sl.registerLazySingleton<TournamentRemoteDataSource>(
     () => TournamentRemoteDataSourceImpl(sl<FirebaseServices>()),
   );
-  
+
   // Repository
   sl.registerLazySingleton<TournamentRepository>(
-    () => TournamentRepositoryImpl(remoteDataSource: sl<TournamentRemoteDataSource>()),
+    () => TournamentRepositoryImpl(
+        remoteDataSource: sl<TournamentRemoteDataSource>()),
   );
-  
+
   // Use cases
-  sl.registerLazySingleton(() => GetTournamentsUseCase(sl<TournamentRepository>()));
-  sl.registerLazySingleton(() => GetFeaturedTournamentsUseCase(sl<TournamentRepository>()));
-  sl.registerLazySingleton(() => GetUpcomingTournamentsUseCase(sl<TournamentRepository>()));
-  sl.registerLazySingleton(() => GetTournamentsByStatusUseCase(sl<TournamentRepository>()));
-  sl.registerLazySingleton(() => GetTournamentByIdUseCase(sl<TournamentRepository>()));
-  
+  sl.registerLazySingleton(
+      () => GetTournamentsUseCase(sl<TournamentRepository>()));
+  sl.registerLazySingleton(
+      () => GetFeaturedTournamentsUseCase(sl<TournamentRepository>()));
+  sl.registerLazySingleton(
+      () => GetUpcomingTournamentsUseCase(sl<TournamentRepository>()));
+  sl.registerLazySingleton(
+      () => GetTournamentsByStatusUseCase(sl<TournamentRepository>()));
+  sl.registerLazySingleton(
+      () => GetTournamentByIdUseCase(sl<TournamentRepository>()));
+
   // BLoCs - Tournament
   sl.registerFactory(() => TournamentBloc(
         getTournamentsUseCase: sl<GetTournamentsUseCase>(),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/config/theme.dart';
 
 class AppBottomNavigation extends StatelessWidget {
   final int currentIndex;
@@ -12,32 +13,121 @@ class AppBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      onTap: onTap,
-      type: BottomNavigationBarType.fixed,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'Home',
+    return Container(
+      height: 70,
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        border: Border(
+          top: BorderSide(
+            color: AppTheme.accentColor.withOpacity(0.2),
+            width: 1,
+          ),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.emoji_events_outlined),
-          activeIcon: Icon(Icons.emoji_events),
-          label: 'Tournament',
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildNavItem(
+                index: 0,
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home_rounded,
+                label: 'Home',
+              ),
+              _buildNavItem(
+                index: 1,
+                icon: Icons.emoji_events_outlined,
+                activeIcon: Icons.emoji_events_rounded,
+                label: 'Tournament',
+              ),
+              _buildNavItem(
+                index: 2,
+                icon: Icons.people_outline,
+                activeIcon: Icons.people_rounded,
+                label: 'Community',
+              ),
+              _buildNavItem(
+                index: 3,
+                icon: Icons.shopping_bag_outlined,
+                activeIcon: Icons.shopping_bag_rounded,
+                label: 'Shop',
+              ),
+              _buildNavItem(
+                index: 4,
+                icon: Icons.person_outline,
+                activeIcon: Icons.person_rounded,
+                label: 'Profile',
+              ),
+            ],
+          ),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.people_outline),
-          activeIcon: Icon(Icons.people),
-          label: 'Community',
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+  }) {
+    final isActive = currentIndex == index;
+    
+    return GestureDetector(
+      onTap: () => onTap(index),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icon with animation
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: isActive 
+                  ? AppTheme.accentColor.withOpacity(0.1)
+                  : Colors.transparent,
+              ),
+              child: Icon(
+                isActive ? activeIcon : icon,
+                color: isActive 
+                  ? AppTheme.accentColor 
+                  : AppTheme.textLight.withOpacity(0.6),
+                size: 20,
+              ),
+            ),
+            
+            const SizedBox(height: 1),
+            
+            // Label with animation
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive 
+                  ? AppTheme.accentColor 
+                  : AppTheme.textLight.withOpacity(0.6),
+                height: 1.0,
+              ),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.shopping_bag_outlined),
-          activeIcon: Icon(Icons.shopping_bag),
-          label: 'Shop',
-        ),
-      ],
+      ),
     );
   }
 }

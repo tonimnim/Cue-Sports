@@ -5,6 +5,7 @@ import 'package:pool_billiard_app/features/auth/presentation/bloc/auth_bloc.dart
 import 'package:pool_billiard_app/features/auth/presentation/bloc/auth_event.dart';
 import 'package:pool_billiard_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:pool_billiard_app/widget/display/loading_indicator.dart';
+import 'package:pool_billiard_app/features/auth/presentation/pages/sms_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const String routeName = '/register';
@@ -56,31 +57,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final phone = _phoneController.text.trim();
     final password = _passwordController.text;
 
-    if (_isPlayer) {
-      // For players, navigate to community selection with the new optimized flow
-      // This provides better UX as community selection happens before authentication
-      Navigator.pushNamed(
-        context,
-        '/select-community-optimized',
-        arguments: {
-          'fullName': fullName,
-          'email': email,
-          'phoneNumber': phone,
-          'password': password,
-          'isOptimizedFlow': true, // Flag to indicate new flow
-        },
-      );
-    } else {
-      // For fans, use the new simplified registration flow
-      context.read<AuthBloc>().add(
-            StartFanRegistrationEvent(
-              fullName: fullName,
-              email: email,
-              phoneNumber: phone,
-              password: password,
-            ),
-          );
-    }
+    // Use the new pending registration system with uniqueness checks
+    context.read<AuthBloc>().add(
+          CreatePendingRegistrationEvent(
+            fullName: fullName,
+            email: email,
+            phoneNumber: phone,
+            password: password,
+            userType: _isPlayer ? 'player' : 'fan',
+            // For players, these will be handled in community selection
+            communityId: null,
+            paymentId: null,
+          ),
+        );
   }
 
   @override
@@ -100,8 +89,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 behavior: SnackBarBehavior.floating,
               ),
             );
+          } else if (state is PendingRegistrationCreated) {
+            // Navigate to SMS verification screen
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => SmsVerificationScreen(
+                  phoneNumber: _phoneController.text.trim(),
+                  fullName: _fullNameController.text.trim(),
+                ),
+              ),
+            );
+          } else if (state is EmailVerificationCompleted) {
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          } else if (state is VerificationEmailResent) {
+            // Show resend success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.blue,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
           } else if (state is EmailVerificationSent) {
-            // Show verification success message
+            // Legacy state - handle for backward compatibility
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -110,8 +127,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 behavior: SnackBarBehavior.floating,
               ),
             );
-            
-            // Navigation will be handled by the AuthWrapper in app.dart
           } else if (state is FanRegistrationComplete) {
             // Fan registration completed successfully
             ScaffoldMessenger.of(context).showSnackBar(
@@ -125,6 +140,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               context,
               '/home',
               (route) => false,
+            );
+          } else if (state is PlayerAccountCreated) {
+            // Player account created, redirect to payment
+            Navigator.pushReplacementNamed(
+              context,
+              '/payment',
+              arguments: {
+                'user': state.user,
+                'paymentId': state.paymentId,
+              },
             );
           } else if (state is AuthAuthenticated) {
             // User is now authenticated, go to home
@@ -162,7 +187,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Text(
                             state is AuthLoading
                                 ? state.message
-                                : (_isPlayer 
+                                : (_isPlayer
                                     ? 'Setting up your player account...'
                                     : 'Creating your fan account...'),
                             style: const TextStyle(
@@ -205,7 +230,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: isLoading 
+                    child: isLoading
                         ? Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -214,11 +239,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              Text(_isPlayer ? 'Setting up...' : 'Creating Account...'),
+                              Text(_isPlayer
+                                  ? 'Setting up...'
+                                  : 'Creating Account...'),
                             ],
                           )
                         : Text(_isPlayer ? 'Continue' : 'Register'),
@@ -231,9 +259,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       const Text('Already have an account?'),
                       TextButton(
-                        onPressed: isLoading ? null : () {
-                          Navigator.pushReplacementNamed(context, '/login');
-                        },
+                        onPressed: isLoading
+                            ? null
+                            : () {
+                                Navigator.pushReplacementNamed(
+                                    context, '/login');
+                              },
                         child: const Text('Sign In'),
                       ),
                     ],
@@ -264,7 +295,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 16),
             ListTile(
               title: const Text('Fan'),
-              subtitle: const Text('Follow tournaments and connect with players'),
+              subtitle:
+                  const Text('Follow tournaments and connect with players'),
               leading: Radio<bool>(
                 value: false,
                 groupValue: _isPlayer,
@@ -277,7 +309,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             ListTile(
               title: const Text('Player'),
-              subtitle: const Text('Participate in tournaments and track stats'),
+              subtitle:
+                  const Text('Participate in tournaments and track stats'),
               leading: Radio<bool>(
                 value: true,
                 groupValue: _isPlayer,
@@ -407,4 +440,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
       },
     );
   }
-} 
+}

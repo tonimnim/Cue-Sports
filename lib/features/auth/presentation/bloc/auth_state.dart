@@ -6,7 +6,7 @@ import '../../../../core/services/secure_storage_service.dart';
 /// Base class for all authentication states
 abstract class AuthState extends Equatable {
   const AuthState();
-  
+
   @override
   List<Object?> get props => [];
 }
@@ -17,9 +17,9 @@ class AuthInitial extends AuthState {}
 /// Loading state for any auth operation
 class AuthLoading extends AuthState {
   final String message;
-  
+
   const AuthLoading({this.message = 'Loading...'});
-  
+
   @override
   List<Object> get props => [message];
 }
@@ -181,9 +181,9 @@ class CommunitiesLoading extends AuthState {}
 /// Communities loaded successfully
 class CommunitiesLoaded extends AuthState {
   final List<Community> communities;
-  
+
   const CommunitiesLoaded(this.communities);
-  
+
   @override
   List<Object> get props => [communities];
 }
@@ -221,4 +221,104 @@ class AuthError extends AuthState {
 
   @override
   List<Object?> get props => [message, email];
+}
+
+// New Pending Registration States
+
+/// Pending registration created, verification email sent
+class PendingRegistrationCreated extends AuthState {
+  final String email;
+  final String fullName;
+  final String userType;
+  final String message;
+
+  const PendingRegistrationCreated({
+    required this.email,
+    required this.fullName,
+    required this.userType,
+    required this.message,
+  });
+
+  @override
+  List<Object> get props => [email, fullName, userType, message];
+}
+
+/// Email verification completed, registration in progress
+class EmailVerificationCompleted extends AuthState {
+  final String email;
+  final String message;
+
+  const EmailVerificationCompleted({
+    required this.email,
+    required this.message,
+  });
+
+  @override
+  List<Object> get props => [email, message];
+}
+
+/// Pending registration status loaded
+class PendingRegistrationStatusLoaded extends AuthState {
+  final String email;
+  final Map<String, dynamic> pendingData;
+
+  const PendingRegistrationStatusLoaded({
+    required this.email,
+    required this.pendingData,
+  });
+
+  @override
+  List<Object> get props => [email, pendingData];
+}
+
+/// No pending registration found
+class NoPendingRegistrationFound extends AuthState {
+  final String email;
+
+  const NoPendingRegistrationFound({required this.email});
+
+  @override
+  List<Object> get props => [email];
+}
+
+/// Verification email resent successfully
+class VerificationEmailResent extends AuthState {
+  final String email;
+  final String message;
+
+  const VerificationEmailResent({
+    required this.email,
+    required this.message,
+  });
+
+  @override
+  List<Object> get props => [email, message];
+}
+
+/// Registration completed successfully
+class RegistrationCompleted extends AuthState {
+  final User user;
+  final String message;
+
+  const RegistrationCompleted({
+    required this.user,
+    required this.message,
+  });
+
+  @override
+  List<Object> get props => [user, message];
+}
+
+/// SMS verification code resent successfully
+class SmsCodeResent extends AuthState {
+  final String phoneNumber;
+  final String message;
+
+  const SmsCodeResent({
+    required this.phoneNumber,
+    required this.message,
+  });
+
+  @override
+  List<Object> get props => [phoneNumber, message];
 }

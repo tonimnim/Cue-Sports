@@ -8,20 +8,20 @@ class AppTheme {
 
   // Color constants based on design
   static const Color primaryColor = Color(0xFF103621); // Dark green
-  static const Color accentColor = Color(0xFFFFC107);  // Yellow/Gold
-  static const Color secondary1 = Color(0xFF16543A);   // Medium green
-  static const Color secondary2 = Color(0xFF0D2819);   // Very dark green
-  
+  static const Color accentColor = Color(0xFFFFC107); // Yellow/Gold
+  static const Color secondary1 = Color(0xFF16543A); // Medium green
+  static const Color secondary2 = Color(0xFF0D2819); // Very dark green
+
   // Additional colors from the design
   static const Color backgroundColor = Color(0xFF0A0E21); // Dark background
-  static const Color cardColor = Color(0xFF1D1E33);      // Card background
-  static const Color textDark = Color(0xFF333333);       // Dark text
-  static const Color textLight = Colors.white;           // Light text
+  static const Color cardColor = Color(0xFF1D1E33); // Card background
+  static const Color textDark = Color(0xFF333333); // Dark text
+  static const Color textLight = Colors.white; // Light text
   static const Color formBackground = Color(0xFF1D1E33); // Form background
-  static const Color errorColor = Color(0xFFE53935);     // Error red
-  static const Color successColor = Color(0xFF4CAF50);   // Success green
-  static const Color warningColor = Color(0xFFFFA726);   // Warning orange
-  
+  static const Color errorColor = Color(0xFFE53935); // Error red
+  static const Color successColor = Color(0xFF4CAF50); // Success green
+  static const Color warningColor = Color(0xFFFFA726); // Warning orange
+
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -40,32 +40,32 @@ class AppTheme {
       Color(0xFFFFB300),
     ],
   );
-  
+
   // Text styles using Google Fonts
   static TextStyle get headingStyle => GoogleFonts.poppins(
-    fontSize: 24,
-    fontWeight: FontWeight.bold,
-    color: textLight,
-  );
-  
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+        color: textLight,
+      );
+
   static TextStyle get subheadingStyle => GoogleFonts.poppins(
-    fontSize: 18,
-    fontWeight: FontWeight.w500,
-    color: textLight,
-  );
-  
+        fontSize: 18,
+        fontWeight: FontWeight.w500,
+        color: textLight,
+      );
+
   static TextStyle get bodyStyle => GoogleFonts.poppins(
-    fontSize: 16,
-    fontWeight: FontWeight.normal,
-    color: textLight,
-  );
-  
+        fontSize: 16,
+        fontWeight: FontWeight.normal,
+        color: textLight,
+      );
+
   static TextStyle get buttonTextStyle => GoogleFonts.poppins(
-    fontSize: 16,
-    fontWeight: FontWeight.bold,
-    color: textDark,
-  );
-  
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: textDark,
+      );
+
   // Light theme
   static ThemeData lightTheme = ThemeData(
     primaryColor: primaryColor,
@@ -153,13 +153,9 @@ class AppTheme {
       suffixIconColor: Colors.grey[400],
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: cardColor,
-      selectedItemColor: accentColor,
-      unselectedItemColor: Color(0xFFAAAAAA),
-      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      showSelectedLabels: true,
-      showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: cardColor,

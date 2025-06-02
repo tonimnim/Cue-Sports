@@ -4,6 +4,7 @@ import 'package:pool_billiard_app/main_screen/home/components/tournament_card.da
 import 'package:pool_billiard_app/main_screen/home/components/top_shooters_list.dart';
 import 'package:pool_billiard_app/main_screen/home/components/upgrade_promotion_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/shop_merchandise_carousel.dart';
+import 'package:pool_billiard_app/main_screen/home/components/quick_action_component.dart';
 
 class FanHomeView extends StatelessWidget {
   final String userName;
@@ -15,7 +16,7 @@ class FanHomeView extends StatelessWidget {
   final VoidCallback onShootersSeeAllTap;
   final VoidCallback? onUpgradeTap;
   final VoidCallback? onShopTap;
-  
+
   const FanHomeView({
     Key? key,
     required this.userName,
@@ -31,48 +32,62 @@ class FanHomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            // User profile header
-            _buildUserProfileHeader(),
-            const SizedBox(height: 24),
-            // Upgrade promotion card (replaces play pool banner)
-            UpgradePromotionCard(
-              onUpgradeTap: onUpgradeTap ?? () => _handleUpgrade(context),
-            ),
-            const SizedBox(height: 24),
-            // Live tournaments section
-            _buildSectionHeader('Live tournaments', onSeeAllTap: onTournamentsSeeAllTap),
-            const SizedBox(height: 16),
-            _buildTournamentsCarousel(context),
-            const SizedBox(height: 24),
-            // Top communities section
-            _buildSectionHeader('Top communities', onSeeAllTap: onCommunitiesSeeAllTap),
-            const SizedBox(height: 16),
-            _buildCommunitiesCarousel(context),
-            const SizedBox(height: 24),
-            // Shop merchandise section
-            ShopMerchandiseCarousel(
-              onShopTap: onShopTap ?? () => _handleShopNavigation(context),
-            ),
-            const SizedBox(height: 24),
-            // Top shooters section
-            TopShootersList(
-              shooters: const [], // Empty list for placeholder display
-              onSeeAllTap: onShootersSeeAllTap,
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          // User profile header
+          _buildUserProfileHeader(),
+          const SizedBox(height: 24),
+          // Upgrade promotion card (replaces play pool banner)
+          UpgradePromotionCard(
+            onUpgradeTap: onUpgradeTap ?? () => _handleUpgrade(context),
+          ),
+          const SizedBox(height: 24),
+          // Live tournaments section
+          _buildSectionHeader('Live tournaments',
+              onSeeAllTap: onTournamentsSeeAllTap),
+          const SizedBox(height: 16),
+          _buildTournamentsCarousel(context),
+          const SizedBox(height: 24),
+          // Quick Action component
+          QuickActionComponent(
+            onFindMatchTap: () {
+              // For fans, show upgrade prompt
+              _showUpgradeDialog(context);
+            },
+            onCommunityTap: onCommunitiesSeeAllTap,
+            onTournamentsTap: onTournamentsSeeAllTap,
+            onLeaderboardTap: () {
+              // TODO: Navigate to leaderboard screen
+            },
+          ),
+          const SizedBox(height: 24),
+          // Top communities section
+          _buildSectionHeader('Top communities',
+              onSeeAllTap: onCommunitiesSeeAllTap),
+          const SizedBox(height: 16),
+          _buildCommunitiesCarousel(context),
+          const SizedBox(height: 24),
+          // Shop merchandise section
+          ShopMerchandiseCarousel(
+            onShopTap: onShopTap ?? () => _handleShopNavigation(context),
+          ),
+          const SizedBox(height: 24),
+          // Top shooters section
+          TopShootersList(
+            shooters: const [], // Empty list for placeholder display
+            onSeeAllTap: onShootersSeeAllTap,
+          ),
+          const SizedBox(
+              height: 100), // Extra bottom padding for navigation bar
+        ],
       ),
     );
   }
-  
+
   Widget _buildUserProfileHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -92,7 +107,8 @@ class FanHomeView extends StatelessWidget {
                         fit: BoxFit.cover,
                       )
                     : const DecorationImage(
-                        image: AssetImage('assets/images/logo.png'), // Using logo as default
+                        image: AssetImage(
+                            'assets/images/logo.png'), // Using logo as default
                         fit: BoxFit.cover,
                       ),
               ),
@@ -110,11 +126,12 @@ class FanHomeView extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (communityName != null) ...[  
+                if (communityName != null) ...[
                   Text(
                     communityName!,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 204), // 0.8 * 255 ≈ 204
+                      color: Colors.white
+                          .withValues(alpha: 204), // 0.8 * 255 ≈ 204
                       fontSize: 14,
                     ),
                   ),
@@ -135,8 +152,9 @@ class FanHomeView extends StatelessWidget {
       ],
     );
   }
-  
-  Widget _buildSectionHeader(String title, {required VoidCallback onSeeAllTap}) {
+
+  Widget _buildSectionHeader(String title,
+      {required VoidCallback onSeeAllTap}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -161,7 +179,7 @@ class FanHomeView extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildTournamentsCarousel(BuildContext context) {
     // Sample tournament data
     final List<Map<String, dynamic>> tournaments = [
@@ -190,7 +208,7 @@ class FanHomeView extends StatelessWidget {
         'isLive': true,
       },
     ];
-    
+
     return SizedBox(
       height: 180,
       child: ListView.builder(
@@ -199,7 +217,8 @@ class FanHomeView extends StatelessWidget {
         itemBuilder: (context, index) {
           final tournament = tournaments[index];
           return Padding(
-            padding: EdgeInsets.only(right: index < tournaments.length - 1 ? 16.0 : 0),
+            padding: EdgeInsets.only(
+                right: index < tournaments.length - 1 ? 16.0 : 0),
             child: TournamentCard(
               title: tournament['title'],
               round: tournament['round'],
@@ -221,7 +240,7 @@ class FanHomeView extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildCommunitiesCarousel(BuildContext context) {
     // Sample community data
     final List<Map<String, dynamic>> communities = [
@@ -238,7 +257,7 @@ class FanHomeView extends StatelessWidget {
         'playerCount': 156,
       },
     ];
-    
+
     return SizedBox(
       height: 80,
       child: ListView.builder(
@@ -247,7 +266,8 @@ class FanHomeView extends StatelessWidget {
         itemBuilder: (context, index) {
           final community = communities[index];
           return Padding(
-            padding: EdgeInsets.only(right: index < communities.length - 1 ? 16.0 : 0),
+            padding: EdgeInsets.only(
+                right: index < communities.length - 1 ? 16.0 : 0),
             child: CommunityCard(
               name: community['name'],
               playerCount: community['playerCount'],
@@ -274,5 +294,57 @@ class FanHomeView extends StatelessWidget {
   void _handleShopNavigation(BuildContext context) {
     // Navigate to shop
     Navigator.pushNamed(context, '/shop');
+  }
+
+  void _showUpgradeDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1B4332),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Upgrade Required',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'This feature is only available for Club Players. Upgrade your account to access match finding and other exclusive features.',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _handleUpgrade(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC107),
+                foregroundColor: Colors.black,
+              ),
+              child: const Text(
+                'Upgrade Now',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

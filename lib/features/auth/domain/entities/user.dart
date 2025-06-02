@@ -25,7 +25,7 @@ class User extends Equatable {
   final bool isEmailVerified;
   final String fullName;
   final String phoneNumber;
-  final String userType;  // Keeping as String for compatibility
+  final String userType; // Keeping as String for compatibility
   final String? communityId;
   final String? profileImageUrl;
   final DateTime createdAt;
@@ -73,8 +73,8 @@ class User extends Equatable {
       return paymentStatus!;
     }
     // Fallback to old enum for backward compatibility
-    return playerPaymentStatus == PaymentStatus.completed || 
-           playerPaymentStatus == PaymentStatus.success;
+    return playerPaymentStatus == PaymentStatus.completed ||
+        playerPaymentStatus == PaymentStatus.success;
   }
 
   /// Create a copy of this user with some fields updated
@@ -138,20 +138,25 @@ class User extends Equatable {
         lastLoginAt,
         isActive,
       ];
-      
+
+  @override
+  String toString() {
+    return 'User{id: "$id", email: "$email", fullName: "$fullName", phoneNumber: "$phoneNumber", userType: "$userType", paymentStatus: $paymentStatus, playerPaymentId: "$playerPaymentId", isActive: $isActive}';
+  }
+
   /// Create a User from JSON data
   factory User.fromJson(Map<String, dynamic> json) {
     try {
       final paymentStatusStr = json['playerPaymentStatus'] as String?;
       PaymentStatus? paymentStatus;
-      
+
       if (paymentStatusStr != null) {
         paymentStatus = PaymentStatus.values.firstWhere(
           (e) => e.toString().split('.').last == paymentStatusStr,
           orElse: () => PaymentStatus.pending,
         );
       }
-      
+
       return User(
         id: json['id'] as String,
         email: json['email'] as String,
@@ -183,7 +188,7 @@ class User extends Equatable {
       throw ServerException('Failed to parse user data: $e');
     }
   }
-  
+
   /// Convert user to JSON
   Map<String, dynamic> toJson() {
     return {

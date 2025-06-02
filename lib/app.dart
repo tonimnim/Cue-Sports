@@ -63,13 +63,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    
-    // Try to resume registration if interrupted
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        context.read<AuthBloc>().add(ResumeRegistrationEvent());
-      }
-    });
+
+    // Don't call ResumeRegistrationEvent here - CheckAuthStatusEvent handles everything
+    // The auth bloc already calls CheckAuthStatusEvent and handles registration drafts
+    // as a fallback when no authenticated user is found
   }
 
   @override
@@ -122,7 +119,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             (route) => false,
           );
         }
-        
+
         // Update initialization state
         if (_isInitializing && state is! AuthInitial && state is! AuthLoading) {
           setState(() => _isInitializing = false);
@@ -134,13 +131,27 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return const SplashScreen();
         }
 
-        // Handle specific auth states
-        if (state is EmailVerificationSent || state is PollingEmailVerification) {
+        // PRIORITY: Handle authenticated users first (most common case)
+        if (state is AuthAuthenticated ||
+            state is FanRegistrationComplete ||
+            state is PaymentCompleted) {
+          return const HomeScreen();
+        }
+
+        // Handle specific auth states for non-authenticated users
+        if (state is EmailVerificationSent ||
+            state is PollingEmailVerification) {
           return EmailVerificationScreen(
-            email: state is EmailVerificationSent ? state.email : 
-                   state is PollingEmailVerification ? state.email : '',
-            uid: state is EmailVerificationSent ? state.uid : 
-                 state is PollingEmailVerification ? state.uid : '',
+            email: state is EmailVerificationSent
+                ? state.email
+                : state is PollingEmailVerification
+                    ? state.email
+                    : '',
+            uid: state is EmailVerificationSent
+                ? state.uid
+                : state is PollingEmailVerification
+                    ? state.uid
+                    : '',
           );
         }
 
@@ -159,15 +170,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
           );
         }
 
-        if (state is AuthAuthenticated || 
-            state is FanRegistrationComplete || 
-            state is PaymentCompleted) {
-          return const HomeScreen();
-        }
-
         if (state is RegistrationDraftSaved) {
           // Show appropriate registration screen
-          if (state.draft.draftType == 'player' && state.draft.communityId == null) {
+          if (state.draft.draftType == 'player' &&
+              state.draft.communityId == null) {
             // Player needs to select community
             Navigator.of(context).pushReplacementNamed(
               RouteConfig.selectCommunityOptimized,
@@ -185,9 +191,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
         if (state is EmailVerified) {
           // Automatically proceed to create Firestore user
           context.read<AuthBloc>().add(CreateFirestoreUserEvent(
-            uid: state.uid,
-            draft: state.draft,
-          ));
+                uid: state.uid,
+                draft: state.draft,
+              ));
           return const SplashScreen();
         }
 
@@ -202,5 +208,3 @@ class _AuthWrapperState extends State<AuthWrapper> {
     );
   }
 }
-
-

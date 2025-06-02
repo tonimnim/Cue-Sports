@@ -171,3 +171,95 @@ class HandlePaymentExpiryEvent extends AuthEvent {
   @override
   List<Object> get props => [userId];
 }
+
+/// Create pending registration with email verification
+class CreatePendingRegistrationEvent extends AuthEvent {
+  final String fullName;
+  final String email;
+  final String phoneNumber;
+  final String password;
+  final String userType; // 'fan' or 'player'
+  final String? communityId; // For players only
+  final String? paymentId; // For players only
+
+  const CreatePendingRegistrationEvent({
+    required this.fullName,
+    required this.email,
+    required this.phoneNumber,
+    required this.password,
+    required this.userType,
+    this.communityId,
+    this.paymentId,
+  });
+
+  @override
+  List<Object?> get props => [
+        fullName,
+        email,
+        phoneNumber,
+        password,
+        userType,
+        communityId,
+        paymentId
+      ];
+}
+
+/// Verify email from pending registration and complete registration
+class VerifyEmailFromPendingEvent extends AuthEvent {
+  final String email;
+  final String verificationCode;
+
+  const VerifyEmailFromPendingEvent({
+    required this.email,
+    required this.verificationCode,
+  });
+
+  @override
+  List<Object> get props => [email, verificationCode];
+}
+
+/// Check pending registration status
+class CheckPendingRegistrationStatusEvent extends AuthEvent {
+  final String email;
+
+  const CheckPendingRegistrationStatusEvent({required this.email});
+
+  @override
+  List<Object> get props => [email];
+}
+
+/// Resend verification email for pending registration
+class ResendPendingVerificationEmailEvent extends AuthEvent {
+  final String email;
+
+  const ResendPendingVerificationEmailEvent({required this.email});
+
+  @override
+  List<Object> get props => [email];
+}
+
+/// Verify SMS code and complete registration
+class VerifySmsCodeEvent extends AuthEvent {
+  final String phoneNumber;
+  final String verificationCode;
+
+  const VerifySmsCodeEvent({
+    required this.phoneNumber,
+    required this.verificationCode,
+  });
+
+  @override
+  List<Object> get props => [phoneNumber, verificationCode];
+}
+
+/// Resend SMS verification code
+class ResendSmsCodeEvent extends AuthEvent {
+  final String phoneNumber;
+
+  const ResendSmsCodeEvent({
+    required this.phoneNumber,
+  });
+
+  @override
+  List<Object> get props => [phoneNumber];
+}

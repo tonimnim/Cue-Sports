@@ -25,15 +25,19 @@ class RouteConfig {
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register'; // Combined registration screen
-  static const String emailVerification = '/email-verification'; // New Firebase email verification
+  static const String emailVerification =
+      '/email-verification'; // New Firebase email verification
   static const String communitySelection = '/community-selection';
   static const String selectCommunity = '/select-community';
   static const String selectCommunityOptimized = '/select-community-optimized';
   static const String payment = '/payment';
-  static const String playerPayment = '/player-payment'; // New player payment screen
+  static const String playerPayment =
+      '/player-payment'; // New player payment screen
+  static const String paymentSimulation =
+      '/payment-simulation'; // Payment simulation for testing
   static const String passwordReset = '/forgot-password';
   static const String home = '/home';
-  
+
   // Feature route names
   static const String communities = '/communities';
   static const String tournaments = '/tournaments';
@@ -70,6 +74,17 @@ class RouteConfig {
                   paymentId: args['paymentId'] as String,
                   paymentDeadline: args['paymentDeadline'] as DateTime?,
                 ));
+      case paymentSimulation:
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args == null) {
+          return MaterialPageRoute(builder: (_) => const LoginScreen());
+        }
+        return MaterialPageRoute(
+            builder: (_) => PlayerPaymentScreen(
+                  user: args['user'] as User,
+                  paymentId: args['paymentId'] as String,
+                  paymentDeadline: args['paymentDeadline'] as DateTime?,
+                ));
       case payment:
         final args = settings.arguments as Map<String, dynamic>?;
         if (args == null) {
@@ -81,7 +96,8 @@ class RouteConfig {
                   typeId: args['typeId'] as String,
                   userId: args['userId'] as String,
                   amount: args['amount'] as double,
-                  prefillPhoneNumber: args['prefillPhoneNumber'] as String? ?? '',
+                  prefillPhoneNumber:
+                      args['prefillPhoneNumber'] as String? ?? '',
                 ));
       case passwordReset:
         return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
@@ -141,7 +157,8 @@ class RouteConfig {
         return MaterialPageRoute(
           builder: (_) => Scaffold(
             appBar: AppBar(title: const Text('Notifications')),
-            body: const Center(child: Text('Notifications screen - Coming soon')),
+            body:
+                const Center(child: Text('Notifications screen - Coming soon')),
           ),
         );
       default:

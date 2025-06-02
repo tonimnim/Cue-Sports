@@ -52,59 +52,31 @@ class _SplashScreenState extends State<SplashScreen>
     _hasCheckedAuth = true;
 
     final logger = sl<LoggerService>();
-    final authRepository = sl<AuthRepository>();
     logger.i('🚀 Checking authentication status...');
 
     try {
-      // Ensure splash screen shows for at least 1 second
+      // Ensure splash screen shows for minimum duration for better UX
       final splashStartTime = DateTime.now();
-      
-      // Use AuthRepository for comprehensive auth check instead of just token
-      final result = await authRepository.getCurrentUser();
 
-      result.fold(
-        (failure) {
-          logger.w('❌ Auth check failed: ${failure.message}');
-          _ensureMinimumSplashTime(splashStartTime, _navigateToLogin);
-        },
-        (user) {
-          if (user == null) {
-            logger.i('👤 No user logged in');
-            _ensureMinimumSplashTime(splashStartTime, _navigateToLogin);
-          } else {
-            logger.i('✅ User authenticated: ${user.fullName}');
-            
-            // IMPROVED: Better payment status checking
-            if (user.isPlayer) {
-              final paymentStatus = user.playerPaymentStatus;
-              logger.i('💳 Player payment status: $paymentStatus');
-              
-              if (paymentStatus == PaymentStatus.completed) {
-                logger.i('✅ Payment completed, navigating to home');
-                _ensureMinimumSplashTime(splashStartTime, _navigateToHome);
-              } else {
-                logger.i('⏳ Payment incomplete, navigating to payment screen');
-                _ensureMinimumSplashTime(splashStartTime, () => _navigateToOptimizedPayment(user));
-              }
-            } else {
-              // Fan user, go directly to home
-              logger.i('👥 Fan user, navigating to home');
-              _ensureMinimumSplashTime(splashStartTime, _navigateToHome);
-            }
-          }
-        },
-      );
+      // DON'T navigate from splash screen - let AuthWrapper handle all navigation
+      // Just ensure minimum splash time and let BLoC states drive navigation
+      _ensureMinimumSplashTime(splashStartTime, () {
+        // Do nothing - AuthWrapper will handle navigation based on auth states
+        logger.i(
+            '🎯 Splash screen timer completed - letting AuthWrapper handle navigation');
+      });
     } catch (e) {
       logger.e('🔥 Auth check exception: $e');
-      _navigateToLogin();
+      // Still don't navigate - let AuthWrapper show login screen
     }
   }
 
   // Ensure splash screen shows for minimum duration for better UX
-  void _ensureMinimumSplashTime(DateTime startTime, VoidCallback navigationCallback) {
+  void _ensureMinimumSplashTime(
+      DateTime startTime, VoidCallback navigationCallback) {
     const minimumSplashDuration = Duration(milliseconds: 1500); // 1.5 seconds
     final elapsed = DateTime.now().difference(startTime);
-    
+
     if (elapsed < minimumSplashDuration) {
       Future.delayed(minimumSplashDuration - elapsed, () {
         if (mounted) {
@@ -113,35 +85,6 @@ class _SplashScreenState extends State<SplashScreen>
       });
     } else {
       navigationCallback();
-    }
-  }
-
-  void _navigateToLogin() {
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/login');
-    }
-  }
-
-  void _navigateToHome() {
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/home');
-    }
-  }
-
-  void _navigateToOptimizedPayment(User user) {
-    if (mounted) {
-      // Generate M-Pesa prompt for existing user
-      final mpesaPrompt = 'Send KSh 500 to MPESA Till Number 247247\nReference: ${user.playerPaymentId ?? 'PENDING'}\nFor: ${user.fullName}';
-      
-      Navigator.of(context).pushReplacementNamed(
-        '/payment-optimized',
-        arguments: {
-          'user': user,
-          'paymentId': user.playerPaymentId ?? 'PENDING_${user.id}',
-          'mpesaPrompt': mpesaPrompt,
-          'amount': 500.0,
-        },
-      );
     }
   }
 
