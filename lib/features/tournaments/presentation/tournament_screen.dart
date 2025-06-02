@@ -43,10 +43,10 @@ class _TournamentScreenState extends State<TournamentScreen> {
         ..add(LoadTournamentsEvent())
         ..add(LoadFeaturedTournamentsEvent()),
       child: Scaffold(
-        backgroundColor: const Color(0xFF0F4A22),
         appBar: AppBar(
-          title: const Text('Tournaments', style: TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFF0F4A22),
+          title:
+              const Text('Tournaments', style: TextStyle(color: Colors.white)),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           iconTheme: const IconThemeData(color: Colors.white),
           elevation: 0,
           actions: [
@@ -85,7 +85,9 @@ class _TournamentScreenState extends State<TournamentScreen> {
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () {
-                        context.read<TournamentBloc>().add(LoadTournamentsEvent());
+                        context
+                            .read<TournamentBloc>()
+                            .add(LoadTournamentsEvent());
                       },
                       child: const Text('Retry'),
                     ),
@@ -95,9 +97,10 @@ class _TournamentScreenState extends State<TournamentScreen> {
             } else if (state is TournamentLoaded) {
               return _buildTournamentContent(context, state);
             }
-            
+
             return const Center(
-              child: Text('Welcome to Tournaments', style: TextStyle(color: Colors.white)),
+              child: Text('Welcome to Tournaments',
+                  style: TextStyle(color: Colors.white)),
             );
           },
         ),
@@ -110,7 +113,8 @@ class _TournamentScreenState extends State<TournamentScreen> {
   }
 
   Widget _buildTournamentContent(BuildContext context, TournamentLoaded state) {
-    List<Tournament> filteredTournaments = _getFilteredTournaments(state.tournaments);
+    List<Tournament> filteredTournaments =
+        _getFilteredTournaments(state.tournaments);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -120,11 +124,11 @@ class _TournamentScreenState extends State<TournamentScreen> {
           // Search bar
           _buildSearchBar(),
           const SizedBox(height: 20),
-          
+
           // Status filter
           _buildStatusFilter(),
           const SizedBox(height: 20),
-          
+
           // Featured tournaments section
           if (state.featuredTournaments.isNotEmpty) ...[
             _buildSectionHeader('Featured Tournaments'),
@@ -132,7 +136,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
             _buildTournamentGrid(state.featuredTournaments.take(2).toList()),
             const SizedBox(height: 20),
           ],
-          
+
           // All tournaments section
           _buildSectionHeader('All Tournaments'),
           const SizedBox(height: 10),
@@ -182,7 +186,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
 
   Widget _buildStatusChip(String label, TournamentStatus? status) {
     final isSelected = _selectedStatus == status;
-    
+
     return FilterChip(
       label: Text(
         label,
@@ -278,7 +282,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            
+
             // Tournament details
             Row(
               children: [
@@ -304,14 +308,15 @@ class _TournamentScreenState extends State<TournamentScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            
+
             // Date and players
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                    const Icon(Icons.calendar_today,
+                        size: 16, color: Colors.grey),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -336,7 +341,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            
+
             // Entry fee and register button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -360,9 +365,11 @@ class _TournamentScreenState extends State<TournamentScreen> {
                         ? () => _handleTournamentRegistration(tournament)
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F4A22),
+                      backgroundColor:
+                          Theme.of(context).scaffoldBackgroundColor,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                     ),
                     child: Text(
                       tournament.canRegister ? 'Register' : 'Full',
@@ -381,7 +388,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
   Widget _buildStatusBadge(TournamentStatus status) {
     Color badgeColor;
     String statusText;
-    
+
     switch (status) {
       case TournamentStatus.upcoming:
         badgeColor = Colors.blue;
@@ -408,7 +415,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
         statusText = 'Cancelled';
         break;
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -428,21 +435,23 @@ class _TournamentScreenState extends State<TournamentScreen> {
 
   List<Tournament> _getFilteredTournaments(List<Tournament> tournaments) {
     List<Tournament> filtered = tournaments;
-    
+
     // Filter by status
     if (_selectedStatus != null) {
-      filtered = filtered.where((tournament) => tournament.status == _selectedStatus).toList();
+      filtered = filtered
+          .where((tournament) => tournament.status == _selectedStatus)
+          .toList();
     }
-    
+
     // Filter by search query
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((tournament) {
         return tournament.name.toLowerCase().contains(_searchQuery) ||
-               tournament.type.toLowerCase().contains(_searchQuery) ||
-               tournament.location.toLowerCase().contains(_searchQuery);
+            tournament.type.toLowerCase().contains(_searchQuery) ||
+            tournament.location.toLowerCase().contains(_searchQuery);
       }).toList();
     }
-    
+
     return filtered;
   }
 
@@ -464,7 +473,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    
+
     switch (index) {
       case 0: // Home
         Navigator.pushReplacementNamed(context, '/home');
@@ -480,4 +489,4 @@ class _TournamentScreenState extends State<TournamentScreen> {
         break;
     }
   }
-} 
+}

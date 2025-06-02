@@ -656,23 +656,26 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   /// Helper method to safely parse DateTime from various formats
-  DateTime? _parseDateTime(dynamic dateValue) {
-    if (dateValue == null) return null;
+  DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) return DateTime.now();
 
     try {
       if (dateValue is Timestamp) {
         return dateValue.toDate();
       } else if (dateValue is String) {
         return DateTime.parse(dateValue);
+      } else if (dateValue is int) {
+        return DateTime.fromMillisecondsSinceEpoch(dateValue);
       } else if (dateValue is DateTime) {
         return dateValue;
       } else {
-        print('DEBUG: Unexpected date type: ${dateValue.runtimeType}');
-        return null;
+        logger.w(
+            'Unexpected date type: ${dateValue.runtimeType} for value: $dateValue');
+        return DateTime.now();
       }
     } catch (e) {
-      print('DEBUG: Failed to parse date value: $dateValue, error: $e');
-      return null;
+      logger.e('Failed to parse date value: $dateValue, error: $e');
+      return DateTime.now();
     }
   }
 
@@ -1865,8 +1868,7 @@ class AuthRepositoryImpl implements AuthRepository {
           location: data['location'] ?? '',
           memberCount: data['memberCount'] ?? 0,
           isActive: data['isActive'] ?? true,
-          createdAt:
-              (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          createdAt: _parseDateTime(data['createdAt']),
         );
       }).toList();
 

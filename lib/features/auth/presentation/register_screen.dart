@@ -57,19 +57,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final phone = _phoneController.text.trim();
     final password = _passwordController.text;
 
-    // Use the new pending registration system with uniqueness checks
-    context.read<AuthBloc>().add(
-          CreatePendingRegistrationEvent(
-            fullName: fullName,
-            email: email,
-            phoneNumber: phone,
-            password: password,
-            userType: _isPlayer ? 'player' : 'fan',
-            // For players, these will be handled in community selection
-            communityId: null,
-            paymentId: null,
-          ),
-        );
+    if (_isPlayer) {
+      // For players, navigate to community selection screen first
+      Navigator.of(context).pushNamed(
+        '/select-community-optimized',
+        arguments: {
+          'fullName': fullName,
+          'email': email,
+          'phoneNumber': phone,
+          'password': password,
+        },
+      );
+    } else {
+      // For fans, proceed directly with registration
+      context.read<AuthBloc>().add(
+            CreatePendingRegistrationEvent(
+              fullName: fullName,
+              email: email,
+              phoneNumber: phone,
+              password: password,
+              userType: 'fan',
+              communityId: null,
+              paymentId: null,
+            ),
+          );
+    }
   }
 
   @override

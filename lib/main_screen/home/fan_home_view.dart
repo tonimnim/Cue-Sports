@@ -5,6 +5,8 @@ import 'package:pool_billiard_app/main_screen/home/components/top_shooters_list.
 import 'package:pool_billiard_app/main_screen/home/components/upgrade_promotion_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/shop_merchandise_carousel.dart';
 import 'package:pool_billiard_app/main_screen/home/components/quick_action_component.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:pool_billiard_app/features/tournaments/presentation/live_tournaments_screen.dart';
 
 class FanHomeView extends StatelessWidget {
   final String userName;
@@ -47,8 +49,14 @@ class FanHomeView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           // Live tournaments section
-          _buildSectionHeader('Live tournaments',
-              onSeeAllTap: onTournamentsSeeAllTap),
+          _buildSectionHeader('Live tournaments', onSeeAllTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const LiveTournamentsScreen(),
+              ),
+            );
+          }),
           const SizedBox(height: 16),
           _buildTournamentsCarousel(context),
           const SizedBox(height: 24),
@@ -185,27 +193,26 @@ class FanHomeView extends StatelessWidget {
     final List<Map<String, dynamic>> tournaments = [
       {
         'title': 'Nairobi Premier League',
-        'round': '3 of 5',
         'players': 32,
         'prize': 'KSh 50,000',
         'venue': 'City Hall',
         'isLive': true,
+        'youtubeUrl': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       },
       {
-        'title': 'Nairobi Premier League',
-        'round': '4 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
+        'title': 'Kenya Championship',
+        'players': 24,
+        'prize': 'KSh 30,000',
+        'venue': 'Sports Complex',
         'isLive': true,
+        'youtubeUrl': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       },
       {
-        'title': 'Nairobi Premier League',
-        'round': '5 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
-        'isLive': true,
+        'title': 'Mombasa Open',
+        'players': 16,
+        'prize': 'KSh 25,000',
+        'venue': 'Ocean View Club',
+        'isLive': false,
       },
     ];
 
@@ -221,24 +228,44 @@ class FanHomeView extends StatelessWidget {
                 right: index < tournaments.length - 1 ? 16.0 : 0),
             child: TournamentCard(
               title: tournament['title'],
-              round: tournament['round'],
               players: tournament['players'],
               prize: tournament['prize'],
               venue: tournament['venue'],
               isLive: tournament['isLive'],
+              youtubeUrl: tournament['youtubeUrl'],
               onTap: () {
-                // Navigate to tournament details
-                Navigator.pushNamed(
-                  context,
-                  '/tournament-details',
-                  arguments: {'tournamentId': index.toString()},
-                );
+                if (tournament['isLive'] && tournament['youtubeUrl'] != null) {
+                  // Launch YouTube URL for live matches
+                  _launchYoutube(tournament['youtubeUrl']);
+                } else {
+                  // Navigate to tournament details for regular tournaments
+                  Navigator.pushNamed(
+                    context,
+                    '/tournament-details',
+                    arguments: {'tournamentId': index.toString()},
+                  );
+                }
               },
             ),
           );
         },
       ),
     );
+  }
+
+  Future<void> _launchYoutube(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      }
+    } catch (e) {
+      // Handle error silently or show a snackbar
+      print('Error launching YouTube: $e');
+    }
   }
 
   Widget _buildCommunitiesCarousel(BuildContext context) {

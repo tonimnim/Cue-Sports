@@ -14,11 +14,11 @@ import 'package:pool_billiard_app/widget/inputs/password_text_field.dart';
 import 'package:pool_billiard_app/widget/inputs/phone_text_field.dart';
 
 /// Login screen for Kenya Pool Billiards app
-/// 
+///
 /// First screen users see after splash screen if not authenticated
 class LoginScreen extends StatefulWidget {
   static const String routeName = '/login';
-  
+
   const LoginScreen({Key? key}) : super(key: key);
 
   @override
@@ -82,17 +82,18 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           } else if (state is AuthAuthenticated) {
             // Check if player needs to complete payment
-            if (state.user.userType == 'player' && 
+            if (state.user.userType == 'player' &&
                 state.user.paymentStatus == false) {
-              
               // Navigate to player payment screen
               Navigator.pushReplacementNamed(
-                context, 
+                context,
                 '/player-payment',
                 arguments: {
                   'user': state.user,
-                  'paymentId': state.user.playerPaymentId ?? 'PENDING_${state.user.id}',
-                  'paymentDeadline': state.user.createdAt.add(const Duration(days: 2)),
+                  'paymentId':
+                      state.user.playerPaymentId ?? 'PENDING_${state.user.id}',
+                  'paymentDeadline':
+                      state.user.createdAt.add(const Duration(days: 2)),
                 },
               );
             } else {
@@ -101,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
           } else if (state is PlayerPaymentRequired) {
             // Navigate to player payment screen for unpaid players
             Navigator.pushReplacementNamed(
-              context, 
+              context,
               '/player-payment',
               arguments: {
                 'user': state.user,
@@ -177,7 +178,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
                         ),
                         onPressed: _togglePasswordVisibility,
                       ),

@@ -17,7 +17,8 @@ class EmailVerificationScreen extends StatefulWidget {
   });
 
   @override
-  State<EmailVerificationScreen> createState() => _EmailVerificationScreenState();
+  State<EmailVerificationScreen> createState() =>
+      _EmailVerificationScreenState();
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen>
@@ -30,7 +31,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
   @override
   void initState() {
     super.initState();
-    
+
     // Email icon pulse animation
     _pulseController = AnimationController(
       vsync: this,
@@ -43,7 +44,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
       parent: _pulseController,
       curve: Curves.easeInOut,
     ));
-    
+
     // Loading rotation animation
     _rotationController = AnimationController(
       vsync: this,
@@ -53,7 +54,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
       begin: 0,
       end: 1,
     ).animate(_rotationController);
-    
+
     _pulseController.repeat(reverse: true);
     _rotationController.repeat();
   }
@@ -74,7 +75,6 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
         return true;
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0D1B2A),
         body: BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is AuthError) {
@@ -103,9 +103,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                     children: [
                       // Header
                       _buildHeader(),
-                      
+
                       const SizedBox(height: 60),
-                      
+
                       // Main content
                       Expanded(
                         child: Column(
@@ -113,9 +113,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                           children: [
                             // Email icon with animation
                             _buildEmailIcon(),
-                            
+
                             const SizedBox(height: 40),
-                            
+
                             // Title
                             Text(
                               'Check Your Email',
@@ -126,9 +126,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            
+
                             const SizedBox(height: 16),
-                            
+
                             // Email address
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -152,9 +152,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                                 ),
                               ),
                             ),
-                            
+
                             const SizedBox(height: 24),
-                            
+
                             // Instructions
                             Text(
                               'We\'ve sent a verification link to your email address. Please click the link to continue with your registration.',
@@ -165,20 +165,20 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            
+
                             const SizedBox(height: 32),
-                            
+
                             // Status indicator
                             _buildStatusIndicator(state),
-                            
+
                             const SizedBox(height: 40),
-                            
+
                             // Action buttons
                             _buildActionButtons(state),
                           ],
                         ),
                       ),
-                      
+
                       // Footer
                       _buildFooter(),
                     ],
@@ -302,7 +302,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
             LinearProgressIndicator(
               value: state.attemptCount / 120,
               backgroundColor: const Color(0xFF415A77).withOpacity(0.3),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF71A9F7)),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF71A9F7)),
             ),
           ],
         ),
@@ -370,7 +371,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
         ),
       );
     }
-    
+
     return const SizedBox.shrink();
   }
 
@@ -405,9 +406,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
             ),
           ),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Cancel button
         SizedBox(
           width: double.infinity,
@@ -473,4 +474,4 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
       ],
     );
   }
-} 
+}

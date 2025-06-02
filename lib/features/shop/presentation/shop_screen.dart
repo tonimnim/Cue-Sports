@@ -44,10 +44,9 @@ class _ShopScreenState extends State<ShopScreen> {
         ..add(LoadFeaturedProductsEvent())
         ..add(LoadPopularProductsEvent()),
       child: Scaffold(
-        backgroundColor: const Color(0xFF0F4A22),
         appBar: AppBar(
           title: const Text('Shop', style: TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFF0F4A22),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           iconTheme: const IconThemeData(color: Colors.white),
           elevation: 0,
           actions: [
@@ -96,9 +95,10 @@ class _ShopScreenState extends State<ShopScreen> {
             } else if (state is ShopLoaded) {
               return _buildShopContent(context, state);
             }
-            
+
             return const Center(
-              child: Text('Welcome to Shop', style: TextStyle(color: Colors.white)),
+              child: Text('Welcome to Shop',
+                  style: TextStyle(color: Colors.white)),
             );
           },
         ),
@@ -121,11 +121,11 @@ class _ShopScreenState extends State<ShopScreen> {
           // Search bar
           _buildSearchBar(),
           const SizedBox(height: 20),
-          
+
           // Category filter
           _buildCategoryFilter(),
           const SizedBox(height: 20),
-          
+
           // Featured products section
           if (state.featuredProducts.isNotEmpty) ...[
             _buildSectionHeader('Featured Products'),
@@ -133,7 +133,7 @@ class _ShopScreenState extends State<ShopScreen> {
             _buildProductGrid(state.featuredProducts.take(4).toList()),
             const SizedBox(height: 20),
           ],
-          
+
           // Popular products section
           if (state.popularProducts.isNotEmpty) ...[
             _buildSectionHeader('Popular Products'),
@@ -141,7 +141,7 @@ class _ShopScreenState extends State<ShopScreen> {
             _buildProductGrid(state.popularProducts.take(4).toList()),
             const SizedBox(height: 20),
           ],
-          
+
           // All products section
           _buildSectionHeader('All Products'),
           const SizedBox(height: 10),
@@ -171,7 +171,7 @@ class _ShopScreenState extends State<ShopScreen> {
 
   Widget _buildCategoryFilter() {
     final categories = ['All', 'Pool Cues', 'Balls', 'Tables', 'Accessories'];
-    
+
     return SizedBox(
       height: 40,
       child: ListView.builder(
@@ -180,7 +180,7 @@ class _ShopScreenState extends State<ShopScreen> {
         itemBuilder: (context, index) {
           final category = categories[index];
           final isSelected = selectedCategory == category;
-          
+
           return Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: FilterChip(
@@ -267,7 +267,8 @@ class _ShopScreenState extends State<ShopScreen> {
           Expanded(
             flex: 3,
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
               child: Container(
                 width: double.infinity,
                 color: Colors.grey[200],
@@ -276,14 +277,15 @@ class _ShopScreenState extends State<ShopScreen> {
                         product.imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.image_not_supported, size: 50);
+                          return const Icon(Icons.image_not_supported,
+                              size: 50);
                         },
                       )
                     : const Icon(Icons.image_not_supported, size: 50),
               ),
             ),
           ),
-          
+
           // Product details
           Expanded(
             flex: 2,
@@ -321,21 +323,23 @@ class _ShopScreenState extends State<ShopScreen> {
 
   List<Product> _getFilteredProducts(List<Product> products) {
     List<Product> filtered = products;
-    
+
     // Filter by category
     if (selectedCategory != 'All') {
-      filtered = filtered.where((product) => product.category == selectedCategory).toList();
+      filtered = filtered
+          .where((product) => product.category == selectedCategory)
+          .toList();
     }
-    
+
     // Filter by search query
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((product) {
         return product.name.toLowerCase().contains(_searchQuery) ||
-               product.description.toLowerCase().contains(_searchQuery) ||
-               product.category.toLowerCase().contains(_searchQuery);
+            product.description.toLowerCase().contains(_searchQuery) ||
+            product.category.toLowerCase().contains(_searchQuery);
       }).toList();
     }
-    
+
     return filtered;
   }
 
@@ -343,7 +347,7 @@ class _ShopScreenState extends State<ShopScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    
+
     switch (index) {
       case 0: // Home
         Navigator.pushReplacementNamed(context, '/home');
@@ -359,4 +363,4 @@ class _ShopScreenState extends State<ShopScreen> {
         break;
     }
   }
-} 
+}

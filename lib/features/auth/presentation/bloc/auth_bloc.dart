@@ -902,8 +902,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         verificationCode: event.verificationCode,
       );
 
-      result.fold(
-        (failure) => emit(AuthError(failure.message)),
+      await result.fold(
+        (failure) async {
+          if (!emit.isDone) emit(AuthError(failure.message));
+        },
         (user) async {
           logger.i('🎉 Registration completed successfully for: ${user.email}');
 
@@ -951,33 +953,39 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           }
 
           // Emit registration completed first
-          emit(RegistrationCompleted(
-            user: user,
-            message:
-                'Registration completed successfully! Welcome to Cue Sports!',
-          ));
-
-          // Small delay to ensure UI shows the success message
-          await Future.delayed(const Duration(milliseconds: 100));
-
-          // Immediately follow with appropriate authenticated state for fast navigation
-          if (user.userType == 'player' && user.paymentStatus == false) {
-            // Player needs payment - emit specific state
-            final paymentDeadline = user.createdAt.add(const Duration(days: 2));
-            emit(PlayerPaymentRequired(
+          if (!emit.isDone) {
+            emit(RegistrationCompleted(
               user: user,
-              paymentDeadline: paymentDeadline,
-              paymentId: user.playerPaymentId ?? '',
+              message:
+                  'Registration completed successfully! Welcome to Cue Sports!',
             ));
-          } else {
-            // Fan or player with completed payment - fully authenticated
-            emit(AuthAuthenticated(user: user, isAutoLogin: false));
+
+            // Small delay to ensure UI shows the success message
+            await Future.delayed(const Duration(milliseconds: 100));
+
+            // Immediately follow with appropriate authenticated state for fast navigation
+            if (!emit.isDone) {
+              if (user.userType == 'player' && user.paymentStatus == false) {
+                // Player needs payment - emit specific state
+                final paymentDeadline =
+                    user.createdAt.add(const Duration(days: 2));
+                emit(PlayerPaymentRequired(
+                  user: user,
+                  paymentDeadline: paymentDeadline,
+                  paymentId: user.playerPaymentId ?? '',
+                ));
+              } else {
+                // Fan or player with completed payment - fully authenticated
+                emit(AuthAuthenticated(user: user, isAutoLogin: false));
+              }
+            }
           }
         },
       );
     } catch (e) {
       logger.e('🔥 SMS verification failed: $e');
-      emit(AuthError('SMS verification failed: ${e.toString()}'));
+      if (!emit.isDone)
+        emit(AuthError('SMS verification failed: ${e.toString()}'));
     }
   }
 

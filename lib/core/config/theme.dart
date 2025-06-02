@@ -7,20 +7,25 @@ class AppTheme {
   AppTheme._();
 
   // Color constants based on design
-  static const Color primaryColor = Color(0xFF103621); // Dark green
-  static const Color accentColor = Color(0xFFFFC107); // Yellow/Gold
+  static const Color primaryColor = Color(0xFF16543A); // Pool table green
+  static const Color accentColor = Color(0xFF2E7D32); // Lighter green
   static const Color secondary1 = Color(0xFF16543A); // Medium green
   static const Color secondary2 = Color(0xFF0D2819); // Very dark green
+  static const Color secondaryColor = Color(0xFFFFC107); // Gold accent
+  static const Color errorColor = Color(0xFFD32F2F); // Red
+  static const Color warningColor = Color(0xFFFF9800); // Orange
+  static const Color infoColor = Color(0xFF1976D2); // Blue
+  static const Color successColor = Color(0xFF388E3C); // Green
+  static const Color surfaceColor = Color(0xFF1B5E20); // Dark green surface
+  static const Color cardColor = Color(0xFF2E7D32); // Card background
+  static const Color dividerColor = Color(0xFF4CAF50); // Divider color
+  static const Color backgroundColor =
+      Color(0xFF0D2819); // Updated background color to #0D2819
 
   // Additional colors from the design
-  static const Color backgroundColor = Color(0xFF0A0E21); // Dark background
-  static const Color cardColor = Color(0xFF1D1E33); // Card background
   static const Color textDark = Color(0xFF333333); // Dark text
   static const Color textLight = Colors.white; // Light text
   static const Color formBackground = Color(0xFF1D1E33); // Form background
-  static const Color errorColor = Color(0xFFE53935); // Error red
-  static const Color successColor = Color(0xFF4CAF50); // Success green
-  static const Color warningColor = Color(0xFFFFA726); // Warning orange
 
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(

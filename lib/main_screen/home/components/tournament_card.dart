@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 
 class TournamentCard extends StatelessWidget {
   final String title;
-  final String round;
   final int players;
   final String prize;
   final String venue;
   final bool isLive;
   final VoidCallback onTap;
+  final String? youtubeUrl; // Add YouTube URL for live matches
 
   const TournamentCard({
     Key? key,
     required this.title,
-    required this.round,
     required this.players,
     required this.prize,
     required this.venue,
     this.isLive = false,
     required this.onTap,
+    this.youtubeUrl,
   }) : super(key: key);
 
   @override
@@ -81,18 +81,7 @@ class TournamentCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            // Round info
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-              child: Text(
-                'Round $round',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 11,
-                ),
-              ),
-            ),
-            const Divider(height: 8),
+            const SizedBox(height: 8), // Replace round text with spacing
             // Tournament details
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -106,7 +95,7 @@ class TournamentCard extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            // View tournament button
+            // View match/tournament button
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Container(
@@ -116,10 +105,10 @@ class TournamentCard extends StatelessWidget {
                   color: const Color(0xFF0F4A22),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    'VIEW TOURNAMENT',
-                    style: TextStyle(
+                    isLive ? 'VIEW MATCH' : 'VIEW TOURNAMENT',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,

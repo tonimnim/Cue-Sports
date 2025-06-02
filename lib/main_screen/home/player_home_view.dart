@@ -3,6 +3,9 @@ import 'package:pool_billiard_app/main_screen/home/components/community_card.dar
 import 'package:pool_billiard_app/main_screen/home/components/tournament_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/top_shooters_list.dart';
 import 'package:pool_billiard_app/main_screen/home/components/quick_action_component.dart';
+import 'package:pool_billiard_app/main_screen/home/components/recent_matches_component.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:pool_billiard_app/features/tournaments/presentation/live_tournaments_screen.dart';
 
 class PlayerHomeView extends StatelessWidget {
   final String userName;
@@ -43,8 +46,14 @@ class PlayerHomeView extends StatelessWidget {
           _buildPlayerRankCard(),
           const SizedBox(height: 24),
           // Live tournaments section
-          _buildSectionHeader('Live tournaments',
-              onSeeAllTap: onTournamentsSeeAllTap),
+          _buildSectionHeader('Live tournaments', onSeeAllTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const LiveTournamentsScreen(),
+              ),
+            );
+          }),
           const SizedBox(height: 16),
           _buildTournamentsCarousel(context),
           const SizedBox(height: 24),
@@ -57,6 +66,14 @@ class PlayerHomeView extends StatelessWidget {
             onTournamentsTap: onTournamentsSeeAllTap,
             onLeaderboardTap: () {
               // TODO: Navigate to leaderboard screen
+            },
+          ),
+          const SizedBox(height: 24),
+          // Recent Matches component (only for players)
+          RecentMatchesComponent(
+            matches: _getSampleRecentMatches(),
+            onSeeAllTap: () {
+              // TODO: Navigate to all recent matches screen
             },
           ),
           const SizedBox(height: 24),
@@ -323,27 +340,26 @@ class PlayerHomeView extends StatelessWidget {
     final List<Map<String, dynamic>> tournaments = [
       {
         'title': 'Nairobi Premier League',
-        'round': '3 of 5',
         'players': 32,
         'prize': 'KSh 50,000',
         'venue': 'City Hall',
         'isLive': true,
+        'youtubeUrl': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       },
       {
-        'title': 'Nairobi Premier League',
-        'round': '4 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
+        'title': 'Kenya Championship',
+        'players': 24,
+        'prize': 'KSh 30,000',
+        'venue': 'Sports Complex',
         'isLive': true,
+        'youtubeUrl': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       },
       {
-        'title': 'Nairobi Premier League',
-        'round': '5 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
-        'isLive': true,
+        'title': 'Mombasa Open',
+        'players': 16,
+        'prize': 'KSh 25,000',
+        'venue': 'Ocean View Club',
+        'isLive': false,
       },
     ];
 
@@ -359,24 +375,44 @@ class PlayerHomeView extends StatelessWidget {
                 right: index < tournaments.length - 1 ? 16.0 : 0),
             child: TournamentCard(
               title: tournament['title'],
-              round: tournament['round'],
               players: tournament['players'],
               prize: tournament['prize'],
               venue: tournament['venue'],
               isLive: tournament['isLive'],
+              youtubeUrl: tournament['youtubeUrl'],
               onTap: () {
-                // Navigate to tournament details
-                Navigator.pushNamed(
-                  context,
-                  '/tournament-details',
-                  arguments: {'tournamentId': index.toString()},
-                );
+                if (tournament['isLive'] && tournament['youtubeUrl'] != null) {
+                  // Launch YouTube URL for live matches
+                  _launchYoutube(tournament['youtubeUrl']);
+                } else {
+                  // Navigate to tournament details for regular tournaments
+                  Navigator.pushNamed(
+                    context,
+                    '/tournament-details',
+                    arguments: {'tournamentId': index.toString()},
+                  );
+                }
               },
             ),
           );
         },
       ),
     );
+  }
+
+  Future<void> _launchYoutube(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      }
+    } catch (e) {
+      // Handle error silently or show a snackbar
+      print('Error launching YouTube: $e');
+    }
   }
 
   Widget _buildCommunitiesCarousel(BuildContext context) {
@@ -422,5 +458,34 @@ class PlayerHomeView extends StatelessWidget {
         },
       ),
     );
+  }
+
+  List<RecentMatch> _getSampleRecentMatches() {
+    return [
+      RecentMatch(
+        id: '1',
+        opponentName: 'James Mwangi',
+        playerScore: 8,
+        opponentScore: 6,
+        timeAgo: '2 hours ago',
+        isWin: true,
+      ),
+      RecentMatch(
+        id: '2',
+        opponentName: 'Mark Kariuki',
+        playerScore: 8,
+        opponentScore: 4,
+        timeAgo: '2 hours ago',
+        isWin: true,
+      ),
+      RecentMatch(
+        id: '3',
+        opponentName: 'Anthony Chege',
+        playerScore: 5,
+        opponentScore: 8,
+        timeAgo: '2 hours ago',
+        isWin: false,
+      ),
+    ];
   }
 }

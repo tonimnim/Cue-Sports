@@ -185,7 +185,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 // Phone number input
                 PhoneTextField(
                   controller: _phoneController,
-                  readOnly: true, // Phone number is pre-filled from registration
+                  readOnly:
+                      true, // Phone number is pre-filled from registration
                   hintText: 'M-Pesa Phone Number',
                 ),
                 const SizedBox(height: 16),
@@ -195,7 +196,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   'You will receive an M-Pesa prompt on ${_phoneController.text}',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onBackground.withOpacity(0.6),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onBackground
+                        .withOpacity(0.6),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -222,4 +226,4 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
     );
   }
-} 
+}

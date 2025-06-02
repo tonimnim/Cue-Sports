@@ -10,12 +10,13 @@ import 'bloc/auth_event.dart';
 import 'bloc/auth_state.dart';
 import '../../../widget/buttons/primary_button.dart';
 import '../../../widget/display/loading_indicator.dart';
+import 'pages/sms_verification_screen.dart';
 
 /// Optimized community selection screen for the new registration flow
 /// This screen handles community selection BEFORE email verification
 class SelectCommunityOptimizedScreen extends StatefulWidget {
   static const String routeName = '/select-community-optimized';
-  
+
   final String fullName;
   final String email;
   final String phoneNumber;
@@ -30,10 +31,12 @@ class SelectCommunityOptimizedScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<SelectCommunityOptimizedScreen> createState() => _SelectCommunityOptimizedScreenState();
+  State<SelectCommunityOptimizedScreen> createState() =>
+      _SelectCommunityOptimizedScreenState();
 }
 
-class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimizedScreen> {
+class _SelectCommunityOptimizedScreenState
+    extends State<SelectCommunityOptimizedScreen> {
   String? _selectedCommunityId;
   String _searchQuery = '';
   List<Community> _communities = [];
@@ -44,16 +47,7 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
   @override
   void initState() {
     super.initState();
-    // Start player registration first to save the draft
-    context.read<AuthBloc>().add(
-      StartPlayerRegistrationEvent(
-        fullName: widget.fullName,
-        email: widget.email,
-        phoneNumber: widget.phoneNumber,
-        password: widget.password,
-      ),
-    );
-    // Then load communities
+    // Load communities immediately
     _loadCommunities();
   }
 
@@ -85,7 +79,8 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
             .where((community) =>
                 community.name.toLowerCase().contains(_searchQuery) ||
                 community.location.toLowerCase().contains(_searchQuery) ||
-                (community.description?.toLowerCase().contains(_searchQuery) ?? false))
+                (community.description?.toLowerCase().contains(_searchQuery) ??
+                    false))
             .toList();
       }
     });
@@ -98,10 +93,22 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
       return;
     }
 
-    // Use new simplified registration flow with community selection
+    // Generate payment ID for the player
+    final paymentId =
+        'PB${DateTime.now().millisecondsSinceEpoch}${_selectedCommunityId!.substring(0, 3).toUpperCase()}';
+
+    // Create pending registration with community selection
     context.read<AuthBloc>().add(
-      SelectCommunityEvent(communityId: _selectedCommunityId!),
-    );
+          CreatePendingRegistrationEvent(
+            fullName: widget.fullName,
+            email: widget.email,
+            phoneNumber: widget.phoneNumber,
+            password: widget.password,
+            userType: 'player',
+            communityId: _selectedCommunityId!,
+            paymentId: paymentId,
+          ),
+        );
   }
 
   void _showErrorSnackBar(String message) {
@@ -138,9 +145,18 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
         listener: (context, state) {
           if (state is AuthError) {
             _showErrorSnackBar(state.message);
-          } else if (state is EmailVerificationSent) {
-            // Show success message - navigation will be handled by AuthWrapper
-            _showSuccessSnackBar('Verification email sent! Check your email.');
+          } else if (state is PendingRegistrationCreated) {
+            // SMS verification code sent, navigate to SMS verification screen
+            _showSuccessSnackBar(
+                'SMS verification code sent! Check your messages.');
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => SmsVerificationScreen(
+                  phoneNumber: widget.phoneNumber,
+                  fullName: widget.fullName,
+                ),
+              ),
+            );
           } else if (state is CommunitiesLoaded) {
             setState(() {
               _communities = state.communities;
@@ -154,13 +170,13 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
           } else if (state is CommunitySelected) {
             // Community selected, now start player registration
             context.read<AuthBloc>().add(
-              StartPlayerRegistrationEvent(
-                fullName: widget.fullName,
-                email: widget.email,
-                phoneNumber: widget.phoneNumber,
-                password: widget.password,
-              ),
-            );
+                  StartPlayerRegistrationEvent(
+                    fullName: widget.fullName,
+                    email: widget.email,
+                    phoneNumber: widget.phoneNumber,
+                    password: widget.password,
+                  ),
+                );
           }
         },
         builder: (context, state) {
@@ -174,15 +190,15 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
                   padding: const EdgeInsets.all(20.0),
                   child: _buildHeader(),
                 ),
-                
+
                 // Search Bar
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   child: _buildSearchBar(),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Communities List (Expanded to take available space)
                 Expanded(
                   child: isLoading
@@ -191,7 +207,7 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
                           ? _buildEmptyState()
                           : _buildOptimizedCommunitiesList(),
                 ),
-                
+
                 // Bottom Section with Continue Button
                 Padding(
                   padding: const EdgeInsets.all(20.0),
@@ -260,7 +276,8 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }
@@ -290,10 +307,12 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
 
   Widget _buildOptimizedCommunityCard(Community community) {
     final isSelected = _selectedCommunityId == community.id;
-    
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      color: isSelected ? AppTheme.primaryColor.withOpacity(0.8) : Colors.white.withOpacity(0.1),
+      color: isSelected
+          ? AppTheme.primaryColor.withOpacity(0.8)
+          : Colors.white.withOpacity(0.1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
@@ -305,15 +324,16 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
         onTap: () {
           // Provide haptic feedback for better UX
           HapticFeedback.selectionClick();
-          
+
           setState(() {
             _selectedCommunityId = community.id;
           });
-          
+
           // REMOVED: The annoying popup snackbar
         },
         leading: CircleAvatar(
-          backgroundColor: isSelected ? Colors.amber : Colors.white.withOpacity(0.1),
+          backgroundColor:
+              isSelected ? Colors.amber : Colors.white.withOpacity(0.1),
           radius: 18,
           child: Icon(
             Icons.location_city,
@@ -374,15 +394,15 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // REMOVED: The redundant "Selected: community name" container
-        
+
         PrimaryButton(
           text: 'Continue to Verification',
-          onPressed: isLoading || _selectedCommunityId == null 
-              ? null 
+          onPressed: isLoading || _selectedCommunityId == null
+              ? null
               : _continueWithRegistration,
           isLoading: isLoading,
         ),
-        
+
         if (_selectedCommunityId == null) ...[
           const SizedBox(height: 8),
           Text(
@@ -473,4 +493,4 @@ class _SelectCommunityOptimizedScreenState extends State<SelectCommunityOptimize
       ),
     );
   }
-} 
+}

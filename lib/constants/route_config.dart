@@ -20,6 +20,9 @@ import '../features/community/presentation/community_list_screen.dart';
 import '../features/shop/presentation/shop_screen.dart';
 import '../features/tournaments/presentation/tournament_screen.dart';
 
+// Import utility screens
+import '../utils/database_setup_screen.dart';
+
 class RouteConfig {
   // Route names
   static const String splash = '/';
@@ -43,6 +46,9 @@ class RouteConfig {
   static const String tournaments = '/tournaments';
   static const String shop = '/shop';
   static const String notifications = '/notifications';
+
+  // Utility route names
+  static const String databaseSetup = '/database-setup';
 
   // Route generator
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -160,6 +166,10 @@ class RouteConfig {
             body:
                 const Center(child: Text('Notifications screen - Coming soon')),
           ),
+        );
+      case databaseSetup:
+        return MaterialPageRoute(
+          builder: (_) => const DatabaseSetupScreen(),
         );
       default:
         return MaterialPageRoute(
