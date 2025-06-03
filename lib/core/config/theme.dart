@@ -21,6 +21,9 @@ class AppTheme {
   static const Color dividerColor = Color(0xFF4CAF50); // Divider color
   static const Color backgroundColor =
       Color(0xFF0D2819); // Updated background color to #0D2819
+  static const Color offCream = Color(0xFFF7F5E6); // Off-cream for backgrounds
+  static const Color registerButtonColor =
+      Color(0xFFFFA600); // Register button yellow
 
   // Additional colors from the design
   static const Color textDark = Color(0xFF333333); // Dark text

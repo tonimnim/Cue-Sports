@@ -134,7 +134,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // PRIORITY: Handle authenticated users first (most common case)
         if (state is AuthAuthenticated ||
             state is FanRegistrationComplete ||
-            state is PaymentCompleted) {
+            state is PaymentCompleted ||
+            state is RegistrationCompleted) {
           return const HomeScreen();
         }
 

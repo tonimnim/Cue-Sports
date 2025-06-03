@@ -35,6 +35,9 @@ abstract class AuthLocalDataSource {
   /// Check if the cached token is still valid
   Future<bool> isAuthTokenValid();
 
+  /// Clear the authentication token
+  Future<void> clearAuthToken();
+
   /// Cache refresh token
   Future<void> cacheRefreshToken(String refreshToken);
 
@@ -107,7 +110,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     try {
       await Future.wait([
         sharedPreferences.setString(_Keys.authToken, token),
-        sharedPreferences.setString(_Keys.tokenExpiry, expiryTime.toIso8601String()),
+        sharedPreferences.setString(
+            _Keys.tokenExpiry, expiryTime.toIso8601String()),
       ]);
       logger.i('Auth token cached successfully');
     } catch (e) {
@@ -131,16 +135,30 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     try {
       final token = sharedPreferences.getString(_Keys.authToken);
       final expiryString = sharedPreferences.getString(_Keys.tokenExpiry);
-      
+
       if (token == null || expiryString == null) {
         return false;
       }
-      
+
       final expiryTime = DateTime.parse(expiryString);
       return DateTime.now().isBefore(expiryTime);
     } catch (e) {
       logger.e('Error checking token validity: $e');
       return false;
+    }
+  }
+
+  @override
+  Future<void> clearAuthToken() async {
+    try {
+      await Future.wait([
+        sharedPreferences.remove(_Keys.authToken),
+        sharedPreferences.remove(_Keys.tokenExpiry),
+      ]);
+      logger.i('Auth token cleared successfully');
+    } catch (e) {
+      logger.e('Error clearing auth token: $e');
+      throw CacheException('Failed to clear auth token');
     }
   }
 

@@ -871,21 +871,46 @@ class AuthRepositoryImpl implements AuthRepository {
         return const Right(null);
       }
 
-      // If online, get fresh user data
+      // If online, get fresh user data and verify existence
       if (await networkInfo.isConnected) {
         try {
           final userModel = await remoteDataSource.getCurrentUser();
           if (userModel != null) {
+            // User exists in Firestore, update cache
             await localDataSource.cacheUser(userModel);
             return Right(userModel.toEntity());
+          } else {
+            // User doesn't exist in Firestore but token is valid
+            // This means user was deleted - clear local data
+            logger.w(
+                '⚠️ Token valid but user not found in Firestore - clearing cache');
+            await localDataSource.clearUserCache();
+            await localDataSource.clearAuthToken();
+            return const Right(null);
           }
-        } catch (_) {
-          // Fall back to local data if remote fails
+        } catch (e) {
+          // Only fall back to cache if it's a network error, not user not found
+          if (e.toString().contains('User not found') ||
+              e.toString().contains('No user document found')) {
+            // User was deleted - clear everything
+            logger.w('⚠️ User document not found - clearing local data');
+            await localDataSource.clearUserCache();
+            await localDataSource.clearAuthToken();
+            return const Right(null);
+          }
+          // For other errors, try cache as fallback
+          logger.w('⚠️ Remote fetch failed, trying cache: $e');
         }
       }
 
-      // If offline or remote failed, try to get from local cache
+      // If offline or remote failed (but not user deletion), try to get from local cache
       final cachedUser = await localDataSource.getLastUser();
+
+      // Important: Add a flag to indicate this is cached/unverified data
+      if (cachedUser != null) {
+        logger.i('📱 Using cached user data (offline mode)');
+      }
+
       return Right(cachedUser?.toEntity());
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message));

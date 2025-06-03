@@ -136,7 +136,18 @@ class _SelectCommunityOptimizedScreenState
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Select Your Community'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Select Your Community'),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.groups,
+              size: 24,
+              color: Colors.amber,
+            ),
+          ],
+        ),
         backgroundColor: AppTheme.primaryColor,
         elevation: 0,
         centerTitle: true,
@@ -185,19 +196,15 @@ class _SelectCommunityOptimizedScreenState
           return SafeArea(
             child: Column(
               children: [
-                // Header Section
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: _buildHeader(),
-                ),
+                const SizedBox(height: 20),
 
-                // Search Bar
+                // Search Bar at top
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   child: _buildSearchBar(),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 // Communities List (Expanded to take available space)
                 Expanded(
@@ -210,7 +217,7 @@ class _SelectCommunityOptimizedScreenState
 
                 // Bottom Section with Continue Button
                 Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.all(24.0),
                   child: _buildContinueButton(isLoading),
                 ),
               ],
@@ -221,49 +228,21 @@ class _SelectCommunityOptimizedScreenState
     );
   }
 
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        const Icon(
-          Icons.groups,
-          size: 50,
-          color: Colors.amber,
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Choose Your Community',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Hi ${widget.fullName}! Select your billiard community.',
-          style: const TextStyle(
-            fontSize: 14,
-            color: Colors.white70,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
   Widget _buildSearchBar() {
-    return TextField(
+    return TextFormField(
       controller: _searchController,
       onChanged: _filterCommunities,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: Colors.black),
       decoration: InputDecoration(
         hintText: 'Search communities by name or location...',
-        hintStyle: const TextStyle(color: Colors.white54),
-        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+        hintStyle: const TextStyle(
+          color: Colors.black54,
+          fontSize: 16,
+        ),
+        prefixIcon: const Icon(Icons.search, color: Colors.black54),
         suffixIcon: _searchQuery.isNotEmpty
             ? IconButton(
-                icon: const Icon(Icons.clear, color: Colors.white54),
+                icon: const Icon(Icons.clear, color: Colors.black54),
                 onPressed: () {
                   _searchController.clear();
                   _filterCommunities('');
@@ -271,13 +250,30 @@ class _SelectCommunityOptimizedScreenState
               )
             : null,
         filled: true,
-        fillColor: Colors.white.withOpacity(0.1),
+        fillColor: const Color(0xFFB7C5B6),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(25),
           borderSide: BorderSide.none,
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: BorderSide.none,
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: const BorderSide(
+            color: Colors.red,
+            width: 1,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
     );
   }
@@ -328,8 +324,6 @@ class _SelectCommunityOptimizedScreenState
           setState(() {
             _selectedCommunityId = community.id;
           });
-
-          // REMOVED: The annoying popup snackbar
         },
         leading: CircleAvatar(
           backgroundColor:
@@ -349,42 +343,17 @@ class _SelectCommunityOptimizedScreenState
             fontSize: 15,
           ),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              community.location,
-              style: TextStyle(
-                color: isSelected ? Colors.amber.shade200 : Colors.white70,
-                fontSize: 12,
-              ),
-            ),
-            if (community.description?.isNotEmpty == true) ...[
-              const SizedBox(height: 2),
-              Text(
-                community.description!,
-                style: TextStyle(
-                  color: isSelected ? Colors.amber.shade200 : Colors.white60,
-                  fontSize: 11,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            Text(
-              '${community.memberCount} members',
-              style: TextStyle(
-                color: isSelected ? Colors.amber.shade200 : Colors.white60,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        subtitle: Text(
+          community.location,
+          style: TextStyle(
+            color: isSelected ? Colors.amber.shade200 : Colors.white70,
+            fontSize: 12,
+          ),
         ),
         trailing: isSelected
             ? const Icon(Icons.check_circle, color: Colors.amber, size: 24)
             : null,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
     );
   }
@@ -393,16 +362,36 @@ class _SelectCommunityOptimizedScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // REMOVED: The redundant "Selected: community name" container
-
-        PrimaryButton(
-          text: 'Continue to Verification',
+        ElevatedButton(
           onPressed: isLoading || _selectedCommunityId == null
               ? null
               : _continueWithRegistration,
-          isLoading: isLoading,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.registerButtonColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+            elevation: 0,
+            minimumSize: const Size(double.infinity, 56),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          child: isLoading
+              ? const CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                )
+              : const Text(
+                  'Continue to Verification',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
         ),
-
         if (_selectedCommunityId == null) ...[
           const SizedBox(height: 8),
           Text(

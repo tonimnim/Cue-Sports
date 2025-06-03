@@ -30,6 +30,29 @@ class _PlayerPaymentScreenState extends State<PlayerPaymentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            const Text(
+              'Back',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        titleSpacing: 0,
+      ),
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is PaymentCompleted) {
@@ -61,74 +84,39 @@ class _PlayerPaymentScreenState extends State<PlayerPaymentScreen> {
             setState(() => _isPaymentVerifying = true);
           }
         },
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: AppTheme.primaryGradient,
+        child: Padding(
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + kToolbarHeight + 24,
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.of(context).padding.bottom + 24,
           ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  // Header with back button
-                  _buildHeader(),
-
-                  const SizedBox(height: 20),
-
-                  // Main content
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 40),
-
-                          // App logo/icon
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentColor.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.sports_basketball,
-                              size: 50,
-                              color: AppTheme.accentColor,
-                            ),
-                          ),
-
-                          const SizedBox(height: 32),
-
-                          // Title
-                          Text(
-                            'Become A Club Player By\nPaying 500 Ksh',
-                            style: AppTheme.headingStyle.copyWith(
-                              fontSize: 28,
-                              color: AppTheme.accentColor,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-
-                          const SizedBox(height: 40),
-
-                          // Mobile number input
-                          _buildMobileNumberInput(),
-
-                          const SizedBox(height: 40),
-
-                          // Pay button
-                          _buildPayButton(),
-
-                          const SizedBox(height: 20),
-
-                          // Skip button
-                          _buildSkipButton(),
-                        ],
-                      ),
-                    ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Title
+                const Text(
+                  'Become A Player By Paying\n500 Ksh',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFF59E0B),
                   ),
-                ],
-              ),
+                  textAlign: TextAlign.center,
+                ),
+
+                const SizedBox(height: 60),
+
+                // Mobile number input
+                _buildMobileNumberInput(),
+
+                const SizedBox(height: 60),
+
+                // Pay button
+                _buildPayButton(),
+              ],
             ),
           ),
         ),
@@ -136,70 +124,63 @@ class _PlayerPaymentScreenState extends State<PlayerPaymentScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: AppTheme.textLight,
-            size: 24,
-          ),
-        ),
-        const Spacer(),
-        Text(
-          'Back',
-          style: AppTheme.subheadingStyle.copyWith(
-            fontSize: 16,
-            color: AppTheme.textLight,
-          ),
-        ),
-        const Spacer(),
-        const SizedBox(width: 40),
-      ],
-    );
-  }
-
   Widget _buildMobileNumberInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Mobile Number',
-          style: AppTheme.bodyStyle.copyWith(
-            color: AppTheme.textLight,
+          style: TextStyle(
+            color: Colors.white,
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.cardColor.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppTheme.accentColor.withOpacity(0.3),
-              width: 1,
-            ),
+        const SizedBox(height: 8),
+        TextFormField(
+          initialValue: widget.user.phoneNumber,
+          enabled: false, // Pre-filled and disabled
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
           ),
-          child: TextFormField(
-            initialValue: widget.user.phoneNumber,
-            enabled: false, // Pre-filled and disabled
-            style: AppTheme.bodyStyle.copyWith(
-              color: AppTheme.textLight,
-              fontSize: 16,
+          decoration: InputDecoration(
+            filled: false,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFF40916C),
+                width: 2,
+              ),
             ),
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFF40916C),
+                width: 2,
               ),
-              suffixIcon: Icon(
-                Icons.phone,
-                color: AppTheme.accentColor,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFF52B788),
+                width: 2,
               ),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFF40916C),
+                width: 2,
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+            suffixIcon: const Icon(
+              Icons.phone,
+              color: Color(0xFF52B788),
             ),
           ),
         ),
@@ -208,47 +189,37 @@ class _PlayerPaymentScreenState extends State<PlayerPaymentScreen> {
   }
 
   Widget _buildPayButton() {
-    return Container(
-      width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        gradient: AppTheme.accentGradient,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.accentColor.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ElevatedButton(
-        onPressed: _isPaymentVerifying ? null : _handleTestPayment,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+    return ElevatedButton(
+      onPressed: _isPaymentVerifying ? null : _handleTestPayment,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppTheme.registerButtonColor,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: _isPaymentVerifying
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.textDark),
-                ),
-              )
-            : Text(
-                'Pay(Ksh 500)',
-                style: AppTheme.buttonTextStyle.copyWith(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
-                ),
-              ),
+        elevation: 0,
+        minimumSize: const Size(double.infinity, 56),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
+      child: _isPaymentVerifying
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Text(
+              'Pay(Ksh 500)',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
     );
   }
 
@@ -305,30 +276,5 @@ class _PlayerPaymentScreenState extends State<PlayerPaymentScreen> {
             );
       }
     });
-  }
-
-  Widget _buildSkipButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: TextButton(
-        onPressed: () {
-          // Save current state and go to home
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/home',
-            (route) => false,
-            arguments: {'user': widget.user},
-          );
-        },
-        child: Text(
-          'I\'ll pay later (2 days remaining)',
-          style: AppTheme.bodyStyle.copyWith(
-            fontSize: 14,
-            color: AppTheme.textLight.withOpacity(0.7),
-            decoration: TextDecoration.underline,
-          ),
-        ),
-      ),
-    );
   }
 }

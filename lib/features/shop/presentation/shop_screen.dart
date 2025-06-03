@@ -5,7 +5,7 @@ import '../presentation/bloc/shop_bloc.dart';
 import '../presentation/bloc/shop_event.dart';
 import '../presentation/bloc/shop_state.dart';
 import '../domain/entities/product.dart';
-import '../../../navigation/bottom_navigation.dart';
+import '../../../widget/display/buttom_navigation';
 
 class ShopScreen extends StatefulWidget {
   const ShopScreen({Key? key}) : super(key: key);

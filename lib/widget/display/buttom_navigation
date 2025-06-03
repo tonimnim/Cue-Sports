@@ -16,10 +16,10 @@ class AppBottomNavigation extends StatelessWidget {
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
+        color: AppTheme.backgroundColor,
         border: Border(
           top: BorderSide(
-            color: AppTheme.accentColor.withOpacity(0.2),
+            color: AppTheme.secondaryColor.withOpacity(0.2),
             width: 1,
           ),
         ),
@@ -93,13 +93,13 @@ class AppBottomNavigation extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 color: isActive 
-                  ? AppTheme.accentColor.withOpacity(0.1)
+                  ? AppTheme.secondaryColor.withOpacity(0.1)
                   : Colors.transparent,
               ),
               child: Icon(
                 isActive ? activeIcon : icon,
                 color: isActive 
-                  ? AppTheme.accentColor 
+                  ? AppTheme.secondaryColor 
                   : AppTheme.textLight.withOpacity(0.6),
                 size: 20,
               ),
@@ -114,7 +114,7 @@ class AppBottomNavigation extends StatelessWidget {
                 fontSize: 10,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                 color: isActive 
-                  ? AppTheme.accentColor 
+                  ? AppTheme.secondaryColor 
                   : AppTheme.textLight.withOpacity(0.6),
                 height: 1.0,
               ),

@@ -5,7 +5,7 @@ import '../presentation/bloc/tournament_bloc.dart';
 import '../presentation/bloc/tournament_event.dart';
 import '../presentation/bloc/tournament_state.dart';
 import '../domain/entities/tournament.dart';
-import '../../../navigation/bottom_navigation.dart';
+import '../../../widget/display/buttom_navigation';
 
 class TournamentScreen extends StatefulWidget {
   const TournamentScreen({Key? key}) : super(key: key);
