@@ -6,25 +6,24 @@ import 'package:pool_billiard_app/features/community/domain/entities/community.d
 import 'package:pool_billiard_app/features/community/presentation/bloc/community_bloc.dart';
 import 'package:pool_billiard_app/features/community/presentation/bloc/community_event.dart';
 import 'package:pool_billiard_app/features/community/presentation/bloc/community_state.dart';
-import 'package:pool_billiard_app/core/widgets/loading_indicator.dart';
-import 'package:pool_billiard_app/features/community/presentation/widgets/community_card.dart';
 
 /// Community Leaderboard Screen
-/// 
-/// Shows a ranking of communities based on their points and achievements
+///
+/// Shows a ranking of communities based on their member count and activity
 class CommunityLeaderboardScreen extends StatelessWidget {
   static const String routeName = '/community-leaderboard';
-  
+
   const CommunityLeaderboardScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => sl<CommunityBloc>()
-        ..add(const LoadTopRankedCommunitiesEvent()),
+      create: (context) =>
+          sl<CommunityBloc>()..add(const LoadTopRankedCommunitiesEvent()),
       child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('Community Leaderboard'),
+          title: const Text('Community Rankings'),
         ),
         body: const _CommunityLeaderboardView(),
       ),
@@ -47,14 +46,14 @@ class _CommunityLeaderboardView extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  state.errorMessage ?? 'Failed to load leaderboard',
+                  state.errorMessage ?? 'Failed to load community rankings',
                   style: const TextStyle(color: AppTheme.errorColor),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => context.read<CommunityBloc>().add(
-                    const LoadTopRankedCommunitiesEvent(),
-                  ),
+                        const LoadTopRankedCommunitiesEvent(),
+                      ),
                   child: const Text('Try Again'),
                 ),
               ],
@@ -62,15 +61,15 @@ class _CommunityLeaderboardView extends StatelessWidget {
           );
         } else if (state.topCommunities?.isEmpty ?? true) {
           return const Center(
-            child: Text('No communities found in the leaderboard.'),
+            child: Text('No communities found.'),
           );
         }
 
         final topCommunities = state.topCommunities!;
-        
+
         return Column(
           children: [
-            // Leaderboard header
+            // Header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -78,7 +77,7 @@ class _CommunityLeaderboardView extends StatelessWidget {
               child: const Column(
                 children: [
                   Text(
-                    'Top Communities',
+                    'Community Rankings',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -87,7 +86,7 @@ class _CommunityLeaderboardView extends StatelessWidget {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Based on community points, achievements, and activity',
+                    'Ranked by member count and community activity',
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.textLight,
@@ -97,113 +96,113 @@ class _CommunityLeaderboardView extends StatelessWidget {
                 ],
               ),
             ),
-            
-            // Podium (top 3 communities)
-            if (topCommunities.isNotEmpty)
+
+            // Top 3 communities highlight
+            if (topCommunities.length >= 3)
               Container(
-                height: 200,
                 padding: const EdgeInsets.all(16),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     // 2nd place
-                    if (topCommunities.length > 1)
-                      _buildPodiumItem(
+                    Expanded(
+                      child: _buildTopCommunityCard(
                         community: topCommunities[1],
                         rank: 2,
-                        height: 100,
-                        fontSize: 18,
+                        color: Colors.grey[400]!,
                       ),
-                    
-                    // 1st place
-                    _buildPodiumItem(
-                      community: topCommunities[0],
-                      rank: 1,
-                      height: 130,
-                      fontSize: 20,
-                      isWinner: true,
                     ),
-                    
+                    const SizedBox(width: 8),
+                    // 1st place
+                    Expanded(
+                      child: _buildTopCommunityCard(
+                        community: topCommunities[0],
+                        rank: 1,
+                        color: Colors.amber,
+                        isWinner: true,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     // 3rd place
-                    if (topCommunities.length > 2)
-                      _buildPodiumItem(
+                    Expanded(
+                      child: _buildTopCommunityCard(
                         community: topCommunities[2],
                         rank: 3,
-                        height: 80,
-                        fontSize: 16,
+                        color: Colors.brown[400]!,
                       ),
+                    ),
                   ],
                 ),
               ),
-            
-            // Full leaderboard list
+
+            // Full rankings list
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 itemCount: topCommunities.length,
                 itemBuilder: (context, index) {
                   final community = topCommunities[index];
                   final rank = index + 1;
-                  
-                  // Determine background color based on rank
-                  Color? backgroundColor;
-                  if (rank == 1) {
-                    backgroundColor = Colors.amber[100];
-                  } else if (rank == 2) {
-                    backgroundColor = Colors.grey[200];
-                  } else if (rank == 3) {
-                    backgroundColor = Colors.brown[100];
-                  }
-                  
-                  return ListTile(
-                    tileColor: backgroundColor,
-                    leading: CircleAvatar(
-                      backgroundColor: _getRankColor(rank),
-                      child: Text(
-                        '$rank',
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _getRankColor(rank),
+                        child: Text(
+                          '$rank',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      title: Text(
+                        community.name,
                         style: const TextStyle(
-                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                    title: Text(
-                      community.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (community.location != null)
+                            Text(community.location!),
+                          Text(
+                            'Skill Level: ${community.skillLevel}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
                       ),
-                    ),
-                    subtitle: Text(
-                      community.location ?? 'No location',
-                    ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${community.communityPoints.toStringAsFixed(0)} pts',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${community.memberCount}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: AppTheme.primaryColor,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '${community.trophyCount} trophies',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
+                          const Text(
+                            'members',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      onTap: () {
+                        // Navigate to community details
+                        Navigator.of(context).pushNamed(
+                          '/community-details',
+                          arguments: community.id,
+                        );
+                      },
                     ),
-                    onTap: () {
-                      // Navigate to community details
-                      Navigator.of(context).pushNamed(
-                        '/community-details',
-                        arguments: community.id,
-                      );
-                    },
                   );
                 },
               ),
@@ -213,96 +212,70 @@ class _CommunityLeaderboardView extends StatelessWidget {
       },
     );
   }
-  
-  Widget _buildPodiumItem({
+
+  Widget _buildTopCommunityCard({
     required Community community,
     required int rank,
-    required double height,
-    required double fontSize,
+    required Color color,
     bool isWinner = false,
   }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Rank badge
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _getRankColor(rank),
-            border: isWinner ? Border.all(color: Colors.amber, width: 2) : null,
-            boxShadow: isWinner
-                ? [
-                    BoxShadow(
-                      color: Colors.amber.withValues(alpha: 128), // 0.5 * 255 = 128
-                      spreadRadius: 2,
-                      blurRadius: 10,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              '$rank',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Community name
-        SizedBox(
-          width: 100,
-          child: Text(
-            community.name,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: fontSize,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Points
-        Text(
-          '${community.communityPoints.toStringAsFixed(0)} pts',
-          style: TextStyle(
-            color: Colors.grey[700],
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Podium
-        Container(
-          width: 80,
-          height: height,
-          decoration: BoxDecoration(
-            color: _getRankColor(rank).withValues(alpha: 179), // 0.7 * 255 ≈ 179
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(4),
-              topRight: Radius.circular(4),
-            ),
-          ),
-          child: isWinner
-              ? const Center(
-                  child: Icon(
-                    Icons.emoji_events,
-                    color: Colors.white,
-                    size: 32,
-                  ),
+    return Card(
+      elevation: isWinner ? 8 : 4,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          gradient: isWinner
+              ? LinearGradient(
+                  colors: [
+                    color.withValues(alpha: 179),
+                    color
+                  ], // 0.7 * 255 ≈ 179
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 )
               : null,
+          color:
+              isWinner ? null : color.withValues(alpha: 51), // 0.2 * 255 ≈ 51
         ),
-      ],
+        child: Column(
+          children: [
+            CircleAvatar(
+              backgroundColor: color,
+              child: Text(
+                '$rank',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              community.name,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: isWinner ? 14 : 12,
+                color: isWinner ? Colors.white : Colors.black87,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${community.memberCount} members',
+              style: TextStyle(
+                fontSize: 11,
+                color: isWinner ? Colors.white70 : Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
-  
+
   Color _getRankColor(int rank) {
     switch (rank) {
       case 1:

@@ -9,13 +9,13 @@ import 'package:pool_billiard_app/features/community/presentation/bloc/community
 import 'package:pool_billiard_app/widget/buttons/primary_button.dart';
 
 /// Communities list screen
-/// 
+///
 /// Shows a list of all available communities with search and filter options
 class CommunityListScreen extends StatelessWidget {
   static const String routeName = '/communities';
-  
+
   final bool isSelectionMode;
-  
+
   const CommunityListScreen({
     Key? key,
     this.isSelectionMode = false,
@@ -24,7 +24,8 @@ class CommunityListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => sl<CommunityBloc>()..add(const LoadCommunitiesEvent()),
+      create: (context) =>
+          sl<CommunityBloc>()..add(const LoadCommunitiesEvent()),
       child: Scaffold(
         appBar: AppBar(
           title: Text(isSelectionMode ? 'Select Community' : 'Communities'),
@@ -45,36 +46,40 @@ class _CommunityListView extends StatefulWidget {
 class _CommunityListViewState extends State<_CommunityListView> {
   final TextEditingController _searchController = TextEditingController();
   String? _selectedLocation;
-  
+
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
   }
-  
+
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
-  
+
   void _onSearchChanged() {
     if (_searchController.text.isNotEmpty) {
-      context.read<CommunityBloc>().add(SearchCommunitiesEvent(_searchController.text));
+      context
+          .read<CommunityBloc>()
+          .add(SearchCommunitiesEvent(_searchController.text));
     } else {
       context.read<CommunityBloc>().add(const ResetFiltersEvent());
       context.read<CommunityBloc>().add(const LoadCommunitiesEvent());
     }
   }
-  
+
   void _onLocationFilterChanged(String? location) {
     setState(() {
       _selectedLocation = location;
     });
-    
+
     if (location != null && location.isNotEmpty) {
-      context.read<CommunityBloc>().add(LoadCommunitiesByLocationEvent(location));
+      context
+          .read<CommunityBloc>()
+          .add(LoadCommunitiesByLocationEvent(location));
     } else {
       context.read<CommunityBloc>().add(const ResetFiltersEvent());
       context.read<CommunityBloc>().add(const LoadCommunitiesEvent());
@@ -138,39 +143,49 @@ class _CommunityListViewState extends State<_CommunityListView> {
                       const SizedBox(height: 16),
                       PrimaryButton(
                         text: 'Try Again',
-                        onPressed: () => context.read<CommunityBloc>().add(const LoadCommunitiesEvent()),
+                        onPressed: () => context
+                            .read<CommunityBloc>()
+                            .add(const LoadCommunitiesEvent()),
                       ),
                     ],
                   ),
                 );
               } else {
                 // Determine which list to show based on filters
-                final communities = state.searchQuery != null || state.filterLocation != null
-                    ? state.filteredCommunities ?? []
-                    : state.communities ?? [];
-                
+                final communities =
+                    state.searchQuery != null || state.filterLocation != null
+                        ? state.filteredCommunities ?? []
+                        : state.communities ?? [];
+
                 if (communities.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.group_off, size: 64, color: AppTheme.secondary1),
+                        const Icon(Icons.group_off,
+                            size: 64, color: AppTheme.secondary1),
                         const SizedBox(height: 16),
                         Text(
-                          state.searchQuery != null || state.filterLocation != null
+                          state.searchQuery != null ||
+                                  state.filterLocation != null
                               ? 'No communities match your filters'
                               : 'No communities available',
                           style: Theme.of(context).textTheme.headlineMedium,
                         ),
-                        if (state.searchQuery != null || state.filterLocation != null) 
+                        if (state.searchQuery != null ||
+                            state.filterLocation != null)
                           TextButton(
                             onPressed: () {
                               setState(() {
                                 _searchController.clear();
                                 _selectedLocation = null;
                               });
-                              context.read<CommunityBloc>().add(const ResetFiltersEvent());
-                              context.read<CommunityBloc>().add(const LoadCommunitiesEvent());
+                              context
+                                  .read<CommunityBloc>()
+                                  .add(const ResetFiltersEvent());
+                              context
+                                  .read<CommunityBloc>()
+                                  .add(const LoadCommunitiesEvent());
                             },
                             child: const Text('Clear Filters'),
                           ),
@@ -178,14 +193,17 @@ class _CommunityListViewState extends State<_CommunityListView> {
                     ),
                   );
                 }
-                
+
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: communities.length,
                   itemBuilder: (context, index) {
                     return _CommunityListTile(
                       community: communities[index],
-                      isSelectionMode: (context.findAncestorWidgetOfExactType<CommunityListScreen>())?.isSelectionMode ?? false,
+                      isSelectionMode: (context.findAncestorWidgetOfExactType<
+                                  CommunityListScreen>())
+                              ?.isSelectionMode ??
+                          false,
                     );
                   },
                 );
@@ -246,10 +264,10 @@ class _CommunityListTile extends StatelessWidget {
                     ),
                     child: Center(
                       child: Text(
-                        community.name.substring(0, 1).toUpperCase(),
+                        community.initials,
                         style: const TextStyle(
                           color: AppTheme.textLight,
-                          fontSize: 28,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -269,26 +287,26 @@ class _CommunityListTile extends StatelessWidget {
                             color: AppTheme.textDark,
                           ),
                         ),
-                        if (community.location.isNotEmpty) ...[  
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.location_on, size: 16, color: AppTheme.secondary1),
-                              const SizedBox(width: 4),
-                              Text(
-                                community.location,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.textDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.people, size: 16, color: AppTheme.secondary1),
+                            const Icon(Icons.location_on,
+                                size: 16, color: AppTheme.secondary1),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${community.location}, ${community.county}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.people,
+                                size: 16, color: AppTheme.secondary1),
                             const SizedBox(width: 4),
                             Text(
                               '${community.memberCount} members',
@@ -302,83 +320,78 @@ class _CommunityListTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Ranking badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _getRankingColor(community.rankingTier),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      community.rankingTier,
-                      style: const TextStyle(
-                        color: AppTheme.textLight,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
                 ],
               ),
-              if (community.description != null && community.description!.isNotEmpty) ...[  
-                const SizedBox(height: 12),
-                Text(
-                  community.description!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textDark,
-                  ),
+              const SizedBox(height: 12),
+              Text(
+                community.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textDark,
                 ),
-              ],
+              ),
               const SizedBox(height: 12),
               // Stats row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Points
+                  // Members
                   _StatBadge(
-                    icon: Icons.emoji_events,
-                    value: community.communityPoints.toStringAsFixed(0),
-                    label: 'Points',
+                    icon: Icons.people,
+                    value: community.memberCount.toString(),
+                    label: 'Members',
                   ),
-                  // Trophies
+                  // Followers (for fans)
                   _StatBadge(
-                    icon: Icons.emoji_events_outlined,
-                    value: community.trophyCount.toString(),
-                    label: 'Trophies',
+                    icon: Icons.favorite,
+                    value: community.followerCount.toString(),
+                    label: 'Followers',
                   ),
-                  // Achievements
+                  // Skill Level
                   _StatBadge(
-                    icon: Icons.star_outline,
-                    value: community.achievementCount.toString(),
-                    label: 'Achievements',
+                    icon: Icons.stars,
+                    value: community.skillLevel,
+                    label: 'Level',
                   ),
                 ],
               ),
+              // Tags
+              if (community.tags.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: community.tags.take(3).map((tag) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.accentColor.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        tag,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.accentColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
-  }
-  
-  Color _getRankingColor(String rankingTier) {
-    switch (rankingTier) {
-      case 'Elite':
-        return Colors.purple;
-      case 'Premier':
-        return Colors.indigo;
-      case 'Professional':
-        return Colors.blue;
-      case 'Advanced':
-        return Colors.green;
-      case 'Intermediate':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
   }
 }
 
@@ -408,6 +421,7 @@ class _StatBadge extends StatelessWidget {
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textDark,
+                fontSize: 12,
               ),
             ),
           ],
@@ -416,7 +430,7 @@ class _StatBadge extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 12,
+            fontSize: 10,
             color: Colors.grey,
           ),
         ),

@@ -1,8 +1,6 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
 import '../entities/community.dart';
-import '../entities/community_event.dart';
-import '../entities/community_post.dart';
 
 /// Repository interface for community operations
 abstract class CommunityRepository {
@@ -17,6 +15,12 @@ abstract class CommunityRepository {
 
   /// Join a community
   Future<Either<Failure, void>> joinCommunity({
+    required String userId,
+    required String communityId,
+  });
+
+  /// Leave a community
+  Future<Either<Failure, void>> leaveCommunity({
     required String userId,
     required String communityId,
   });
@@ -39,7 +43,8 @@ abstract class CommunityRepository {
   });
 
   /// Get communities by location
-  Future<Either<Failure, List<Community>>> getCommunityByLocation(String location);
+  Future<Either<Failure, List<Community>>> getCommunitiesByLocation(
+      String location);
 
   /// Create a new community
   Future<Either<Failure, Community>> createCommunity({
@@ -54,58 +59,6 @@ abstract class CommunityRepository {
   /// Delete a community
   Future<Either<Failure, bool>> deleteCommunity(String communityId);
 
-  /// Get community events
-  Future<Either<Failure, List<CommunityEvent>>> getCommunityEvents(
-    String communityId, {
-    bool includeEnded = false,
-  });
-
-  /// Create a new event
-  Future<Either<Failure, CommunityEvent>> createEvent(CommunityEvent event);
-
-  /// Update an existing event
-  Future<Either<Failure, CommunityEvent>> updateEvent(CommunityEvent event);
-
-  /// Delete an event
-  Future<Either<Failure, bool>> deleteEvent(String eventId);
-
-  /// Register for an event
-  Future<Either<Failure, bool>> registerForEvent(String eventId, String userId);
-
-  /// Unregister from an event
-  Future<Either<Failure, bool>> unregisterFromEvent(String eventId, String userId);
-
-  /// Get user's registered events
-  Future<Either<Failure, List<CommunityEvent>>> getUserRegisteredEvents(String userId);
-
-  /// Cancel an event
-  Future<Either<Failure, bool>> cancelEvent(String eventId);
-
-  /// Get community posts
-  Future<Either<Failure, List<CommunityPost>>> getCommunityPosts(
-    String communityId, {
-    int limit = 20,
-    String? lastPostId,
-  });
-
-  /// Create a new post
-  Future<Either<Failure, CommunityPost>> createPost(CommunityPost post);
-
-  /// Update an existing post
-  Future<Either<Failure, CommunityPost>> updatePost(CommunityPost post);
-
-  /// Delete a post
-  Future<Either<Failure, bool>> deletePost(String postId);
-
-  /// Like a post
-  Future<Either<Failure, bool>> likePost(String postId, String userId);
-
-  /// Unlike a post
-  Future<Either<Failure, bool>> unlikePost(String postId, String userId);
-
-  /// Pin a post
-  Future<Either<Failure, bool>> pinPost(String postId);
-
-  /// Unpin a post
-  Future<Either<Failure, bool>> unpinPost(String postId);
-} 
+  // TODO: Community events and posts features to be implemented in future versions
+  // These features are not yet available but may be added later
+}

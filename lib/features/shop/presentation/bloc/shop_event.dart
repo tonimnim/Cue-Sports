@@ -12,6 +12,15 @@ abstract class ShopEvent extends Equatable {
 // Product events
 class LoadProductsEvent extends ShopEvent {}
 
+class SearchProductsEvent extends ShopEvent {
+  final String query;
+
+  const SearchProductsEvent(this.query);
+
+  @override
+  List<Object> get props => [query];
+}
+
 class LoadProductsByCategoryEvent extends ShopEvent {
   final String category;
 
@@ -26,6 +35,15 @@ class LoadFeaturedProductsEvent extends ShopEvent {}
 class LoadPopularProductsEvent extends ShopEvent {}
 
 class LoadNewArrivalsEvent extends ShopEvent {}
+
+class FilterProductsByCategoryEvent extends ShopEvent {
+  final String category;
+
+  const FilterProductsByCategoryEvent(this.category);
+
+  @override
+  List<Object> get props => [category];
+}
 
 class LoadProductByIdEvent extends ShopEvent {
   final String productId;
@@ -62,6 +80,18 @@ class UpdateCartItemEvent extends ShopEvent {
 
   @override
   List<Object> get props => [cartItem];
+}
+
+class UpdateCartItemQuantityEvent extends ShopEvent {
+  final String userId;
+  final String cartItemId;
+  final int quantity;
+
+  const UpdateCartItemQuantityEvent(
+      this.userId, this.cartItemId, this.quantity);
+
+  @override
+  List<Object> get props => [userId, cartItemId, quantity];
 }
 
 class RemoveFromCartEvent extends ShopEvent {
@@ -109,4 +139,4 @@ class UpdateOrderEvent extends ShopEvent {
 
   @override
   List<Object> get props => [order];
-} 
+}

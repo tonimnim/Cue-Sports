@@ -1,12 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pool_billiard_app/main_screen/home/components/community_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/tournament_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/top_shooters_list.dart';
 import 'package:pool_billiard_app/main_screen/home/components/upgrade_promotion_card.dart';
-import 'package:pool_billiard_app/main_screen/home/components/shop_merchandise_carousel.dart';
 import 'package:pool_billiard_app/main_screen/home/components/quick_action_component.dart';
 
-class FanHomeView extends StatelessWidget {
+class FanHomeView extends StatefulWidget {
   final String userName;
   final String? communityName;
   final String? userImageUrl;
@@ -31,6 +31,96 @@ class FanHomeView extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<FanHomeView> createState() => _FanHomeViewState();
+}
+
+class _FanHomeViewState extends State<FanHomeView> {
+  final PageController _heroPageController = PageController();
+  Timer? _heroAutoScrollTimer;
+  int _currentHeroPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startHeroAutoScroll();
+  }
+
+  @override
+  void dispose() {
+    _heroAutoScrollTimer?.cancel();
+    _heroPageController.dispose();
+    super.dispose();
+  }
+
+  void _startHeroAutoScroll() {
+    _heroAutoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_heroPageController.hasClients) {
+        // Auto-scroll ALL cards (including "BECOME A PLAYER")
+        final allCards = _getHeroCards();
+        final nextPage = (_currentHeroPage + 1) % allCards.length;
+        _heroPageController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+        setState(() {
+          _currentHeroPage = nextPage;
+        });
+      }
+    });
+  }
+
+  List<Map<String, dynamic>> _getHeroCards() {
+    return [
+      {
+        'type': 'upgrade',
+        'title': 'BECOME A\nPLAYER',
+        'subtitle': 'UPGRADE TO PLAYER',
+        'description': 'JOIN TOURNAMENTS · TRACK STATS',
+        'buttonText': 'UPGRADE NOW - KSh 500',
+        'color': const Color(0xFFF9D61D),
+        'image': 'assets/images/BILLIARD POOL.svg',
+      },
+      {
+        'type': 'merchandise',
+        'title': 'PREMIUM\nPOOL CUE',
+        'subtitle': 'SHOP EQUIPMENT',
+        'description': 'PROFESSIONAL GRADE · 25% OFF',
+        'buttonText': 'GET NOW - KSh 4,500',
+        'color': const Color(0xFF0066FF),
+        'image': 'assets/images/BILLIARD POOL.svg',
+      },
+      {
+        'type': 'merchandise',
+        'title': 'CLUB\nJERSEY',
+        'subtitle': 'OFFICIAL MERCHANDISE',
+        'description': 'REPRESENT YOUR COMMUNITY',
+        'buttonText': 'ORDER NOW - KSh 1,200',
+        'color': const Color(0xFF00CC66),
+        'image': 'assets/images/BILLIARD POOL.svg',
+      },
+      {
+        'type': 'merchandise',
+        'title': 'TOURNAMENT\nRANKING',
+        'subtitle': 'TRACK PROGRESS',
+        'description': 'VIEW LEADERBOARDS · STATS',
+        'buttonText': 'VIEW RANKINGS',
+        'color': const Color(0xFFFF6600),
+        'image': 'assets/images/BILLIARD POOL.svg',
+      },
+      {
+        'type': 'merchandise',
+        'title': 'POOL BALL\nSET',
+        'subtitle': 'COMPLETE SET',
+        'description': 'PROFESSIONAL TOURNAMENT BALLS',
+        'buttonText': 'BUY NOW - KSh 3,200',
+        'color': const Color(0xFF9933FF),
+        'image': 'assets/images/BILLIARD POOL.svg',
+      },
+    ];
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -41,14 +131,12 @@ class FanHomeView extends StatelessWidget {
           // User profile header
           _buildUserProfileHeader(),
           const SizedBox(height: 24),
-          // Upgrade promotion card (replaces play pool banner)
-          UpgradePromotionCard(
-            onUpgradeTap: onUpgradeTap ?? () => _handleUpgrade(context),
-          ),
+          // ALL cards auto-scroll together (including "BECOME A PLAYER")
+          _buildAllCardsCarousel(),
           const SizedBox(height: 24),
           // Live tournaments section
           _buildSectionHeader('Live tournaments',
-              onSeeAllTap: onTournamentsSeeAllTap),
+              onSeeAllTap: widget.onTournamentsSeeAllTap),
           const SizedBox(height: 16),
           _buildTournamentsCarousel(context),
           const SizedBox(height: 24),
@@ -58,8 +146,8 @@ class FanHomeView extends StatelessWidget {
               // For fans, show upgrade prompt
               _showUpgradeDialog(context);
             },
-            onCommunityTap: onCommunitiesSeeAllTap,
-            onTournamentsTap: onTournamentsSeeAllTap,
+            onCommunityTap: widget.onCommunitiesSeeAllTap,
+            onTournamentsTap: widget.onTournamentsSeeAllTap,
             onLeaderboardTap: () {
               // TODO: Navigate to leaderboard screen
             },
@@ -67,22 +155,167 @@ class FanHomeView extends StatelessWidget {
           const SizedBox(height: 24),
           // Top communities section
           _buildSectionHeader('Top communities',
-              onSeeAllTap: onCommunitiesSeeAllTap),
+              onSeeAllTap: widget.onCommunitiesSeeAllTap),
           const SizedBox(height: 16),
           _buildCommunitiesCarousel(context),
-          const SizedBox(height: 24),
-          // Shop merchandise section
-          ShopMerchandiseCarousel(
-            onShopTap: onShopTap ?? () => _handleShopNavigation(context),
-          ),
           const SizedBox(height: 24),
           // Top shooters section
           TopShootersList(
             shooters: const [], // Empty list for placeholder display
-            onSeeAllTap: onShootersSeeAllTap,
+            onSeeAllTap: widget.onShootersSeeAllTap,
           ),
           const SizedBox(
               height: 100), // Extra bottom padding for navigation bar
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAllCardsCarousel() {
+    final allCards = _getHeroCards(); // ALL cards including "BECOME A PLAYER"
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 120,
+          child: PageView.builder(
+            controller: _heroPageController,
+            onPageChanged: (page) {
+              setState(() {
+                _currentHeroPage = page;
+              });
+            },
+            itemCount: allCards.length,
+            itemBuilder: (context, index) {
+              final card = allCards[index];
+              return _buildHeroCard(card);
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Page indicators
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(allCards.length, (index) {
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _currentHeroPage == index
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.3),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroCard(Map<String, dynamic> card) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF093218),
+            const Color(0xFF0B3D1C),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Text content
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    card['subtitle'],
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Flexible(
+                    child: Text(
+                      card['title'],
+                      style: TextStyle(
+                        color: card['color'],
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    card['description'],
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: () {
+                      if (card['type'] == 'upgrade') {
+                        if (widget.onUpgradeTap != null) {
+                          widget.onUpgradeTap!();
+                        } else {
+                          _handleUpgrade(context);
+                        }
+                      } else {
+                        if (widget.onShopTap != null) {
+                          widget.onShopTap!();
+                        } else {
+                          _handleShopNavigation(context);
+                        }
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: card['color'].withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        card['buttonText'],
+                        style: TextStyle(
+                          color: card['color'],
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Image
+          Container(
+            width: 120,
+            padding: const EdgeInsets.all(12),
+            child: Image.asset(
+              card['image'],
+              fit: BoxFit.contain,
+            ),
+          ),
         ],
       ),
     );
@@ -101,14 +334,14 @@ class FanHomeView extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
-                image: userImageUrl != null
+                image: widget.userImageUrl != null
                     ? DecorationImage(
-                        image: NetworkImage(userImageUrl!),
+                        image: NetworkImage(widget.userImageUrl!),
                         fit: BoxFit.cover,
                       )
                     : const DecorationImage(
                         image: AssetImage(
-                            'assets/images/logo.png'), // Using logo as default
+                            'assets/images/BILLIARD POOL.svg'), // Using logo as default
                         fit: BoxFit.cover,
                       ),
               ),
@@ -119,16 +352,16 @@ class FanHomeView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  userName,
+                  widget.userName,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (communityName != null) ...[
+                if (widget.communityName != null) ...[
                   Text(
-                    communityName!,
+                    widget.communityName!,
                     style: TextStyle(
                       color: Colors.white
                           .withValues(alpha: 204), // 0.8 * 255 ≈ 204
@@ -147,7 +380,7 @@ class FanHomeView extends StatelessWidget {
             color: Colors.yellow,
             size: 28,
           ),
-          onPressed: onNotificationTap,
+          onPressed: widget.onNotificationTap,
         ),
       ],
     );

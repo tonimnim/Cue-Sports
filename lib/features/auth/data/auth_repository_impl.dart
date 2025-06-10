@@ -208,185 +208,56 @@ class AuthRepositoryImpl implements AuthRepository {
       try {
         logger.i('🎯 Starting fan registration for: $email');
 
-        // 1. Store user details in local storage first
-        final draft = {
-          'userType': 'fan',
-          'fullName': fullName,
-          'email': email,
-          'phoneNumber': phoneNumber,
-          'password': password,
-          'timestamp': DateTime.now().toIso8601String(),
-        };
-
-        // Cache draft in secure storage
-        await localDataSource.cacheUser(UserModel(
-          id: '', // Temporary ID until Firebase account is created
-          fullName: fullName,
-          email: email,
-          phoneNumber: phoneNumber,
-          userType: 'fan',
-          createdAt: DateTime.now(),
-          registeredAt: DateTime.now(),
-          isEmailVerified: false,
-          lastLoginAt: DateTime.now(),
-          isActive: true,
-        ));
-
-        logger.i('📝 User details stored in local storage');
-
-        // 2. Create Firebase Auth account with Firestore-first approach (no user object access)
-        String? userId;
-
-        try {
-          logger.i('🔥 Creating Firebase Auth account...');
-
-          // Try to create account without accessing user objects
-          try {
+        // 1. Create Firebase Auth account first - this gives us the proper UID
+        final UserCredential credential =
             await firebaseServices.auth.createUserWithEmailAndPassword(
-              email: email,
-              password: password,
-            );
-            logger.i('✅ Firebase Auth account created successfully');
+          email: email,
+          password: password,
+        );
 
-            // Don't access credential.user - instead, search Firestore for the account
-            await Future.delayed(
-                const Duration(seconds: 2)); // Wait for Firebase to process
+        // 2. Get the actual Firebase Auth UID - this is the proper user ID
+        final String userId = credential.user!.uid;
+        logger.i('✅ Firebase Auth account created with UID: $userId');
 
-            // Find the user by email in Firebase Auth through alternative method
-            final authUserList =
-                await firebaseServices.auth.fetchSignInMethodsForEmail(email);
-            if (authUserList.isNotEmpty) {
-              logger.i('🔍 Confirmed Firebase Auth account exists for: $email');
-
-              // Generate a predictable temporary ID until we can verify the real one
-              // We'll verify the real UID after email verification
-              userId =
-                  'temp_${email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}_${DateTime.now().millisecondsSinceEpoch}';
-              logger.i('📝 Using temporary ID for registration: $userId');
-            } else {
-              throw Exception('Account creation verification failed');
-            }
-          } catch (authError) {
-            logger.w('🔄 Firebase Auth creation failed: $authError');
-
-            // If email already in use, verify account exists and generate temp ID
-            if (authError.toString().contains('email-already-in-use')) {
-              logger
-                  .i('📧 Email already in use, verifying existing account...');
-
-              // Verify the account exists through fetchSignInMethodsForEmail
-              try {
-                final signInMethods = await firebaseServices.auth
-                    .fetchSignInMethodsForEmail(email);
-                if (signInMethods.isNotEmpty) {
-                  // Account confirmed to exist, generate temp ID
-                  userId =
-                      'temp_${email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}_${DateTime.now().millisecondsSinceEpoch}';
-                  logger.i(
-                      '✅ Existing Firebase Auth account confirmed, using temp ID: $userId');
-                } else {
-                  throw AuthFailure(
-                      message: 'Unable to verify existing account');
-                }
-              } catch (verifyError) {
-                logger.e('❌ Account verification failed: $verifyError');
-                throw AuthFailure(
-                    message: 'Failed to verify account: $verifyError');
-              }
-            } else {
-              throw AuthFailure(
-                  message: 'Failed to create account: $authError');
-            }
-          }
-
-          if (userId == null) {
-            throw AuthFailure(message: 'Failed to establish user ID');
-          }
-
-          logger.i('✅ Firebase Auth setup completed with ID: $userId');
-        } catch (e) {
-          logger.e('🔥 Critical error in Firebase Auth: $e');
-          return Left(AuthFailure(message: 'Authentication failed: $e'));
-        }
-
-        // 3. Send email verification via EmailService (bypassing Firebase Auth user object)
-        bool emailVerificationSent = false;
-        try {
-          if (userId != null) {
-            logger.i(
-                '🔄 Attempting to send email verification via EmailService...');
-
-            // Generate verification code
-            final verificationCode =
-                DateTime.now().millisecondsSinceEpoch.toString();
-
-            // Store verification info in temporary collection
-            await firebaseServices.firestore
-                .collection('emailVerifications')
-                .doc(email)
-                .set({
-              'email': email,
-              'verificationCode': verificationCode,
-              'userId': userId,
-              'userType': 'fan',
-              'createdAt': FieldValue.serverTimestamp(),
-              'expiresAt': DateTime.now()
-                  .add(const Duration(hours: 24))
-                  .toIso8601String(),
-            });
-
-            // Send verification email using EmailService
-            emailVerificationSent = await emailService.sendVerificationEmail(
-              email: email,
-              fullName: fullName,
-              verificationCode: verificationCode,
-              userType: 'fan',
-            );
-
-            if (emailVerificationSent) {
-              logger.i('✅ Email verification sent successfully to: $email');
-            } else {
-              logger.w('⚠️ Failed to send verification email');
-            }
-          } else {
-            logger.e('❌ Cannot send email verification - userId is null');
-            throw Exception('User ID is null, cannot send verification');
-          }
-        } catch (verificationError) {
-          logger.w('⚠️ Failed to send email verification: $verificationError');
-          // Continue without email verification for now - user can verify later
-          logger.i('📝 Continuing registration without email verification');
-        }
-
-        // If Firebase email verification failed, log the issue but continue
-        if (!emailVerificationSent) {
-          logger.w(
-              '⚠️ Email verification not sent - user will need to request resend');
-        }
-
-        // 4. Create temporary user model with unverified status
+        // 3. Create user document with the proper Firebase Auth UID
         final userModel = UserModel(
-          id: userId,
+          id: userId, // Use actual Firebase Auth UID
           fullName: fullName,
           email: email,
           phoneNumber: phoneNumber,
           userType: 'fan',
           createdAt: DateTime.now(),
           registeredAt: DateTime.now(),
-          isEmailVerified: false, // Will be true after email verification
+          isEmailVerified: false, // Will be updated after email verification
           lastLoginAt: DateTime.now(),
           isActive: true,
         );
 
-        // 5. Store or update in Firestore
-        await firebaseServices.firestore.collection('users').doc(userId).set(
-            userModel.toJson(),
-            SetOptions(merge: true)); // Use merge to update if exists
+        // 4. Store user data in Firestore using the Firebase Auth UID as document ID
+        await firebaseServices.firestore
+            .collection('users')
+            .doc(userId) // Use Firebase Auth UID as document ID
+            .set(userModel.toJson());
 
-        // Note: Tokens will be stored after email verification
-        logger.i('✅ Fan registration initiated. Awaiting email verification.');
+        logger.i('✅ User document created in Firestore with ID: $userId');
 
+        // 5. Send email verification using Firebase Auth built-in method
+        try {
+          await credential.user!.sendEmailVerification();
+          logger.i('✅ Email verification sent to: $email');
+        } catch (emailError) {
+          logger.w('⚠️ Email verification failed: $emailError');
+          // Continue registration - user can verify later
+        }
+
+        // 6. Cache user locally for offline access
+        await localDataSource.cacheUser(userModel);
+
+        logger.i('✅ Fan registration completed successfully');
         return Right(userModel.toEntity());
+      } on FirebaseAuthException catch (e) {
+        logger.e('🔥 Firebase Auth error: ${e.code} - ${e.message}');
+        return Left(AuthFailure(message: _getAuthErrorMessage(e.code)));
       } catch (e) {
         logger.e('🔥 Fan registration error: $e');
         return Left(
@@ -411,21 +282,20 @@ class AuthRepositoryImpl implements AuthRepository {
       try {
         logger.i('⚽ Starting player registration for: $email');
 
-        // 1. Store all details including community in local storage
-        final draft = {
-          'userType': 'player',
-          'fullName': fullName,
-          'email': email,
-          'phoneNumber': phoneNumber,
-          'password': password,
-          'communityId': communityId,
-          'paymentId': paymentId,
-          'timestamp': DateTime.now().toIso8601String(),
-        };
+        // 1. Create Firebase Auth account first - this gives us the proper UID
+        final UserCredential credential =
+            await firebaseServices.auth.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
 
-        // Cache draft in secure storage
-        await localDataSource.cacheUser(UserModel(
-          id: '', // Temporary ID until Firebase account is created
+        // 2. Get the actual Firebase Auth UID - this is the proper user ID
+        final String userId = credential.user!.uid;
+        logger.i('✅ Firebase Auth account created with UID: $userId');
+
+        // 3. Create player user document with the proper Firebase Auth UID
+        final userModel = UserModel(
+          id: userId, // Use actual Firebase Auth UID
           fullName: fullName,
           email: email,
           phoneNumber: phoneNumber,
@@ -433,184 +303,39 @@ class AuthRepositoryImpl implements AuthRepository {
           communityId: communityId,
           playerPaymentId: paymentId,
           playerPaymentStatus: PaymentStatus.pending,
-          paymentStatus: false, // Boolean: false = not paid
+          paymentStatus: false, // Payment not completed yet
           createdAt: DateTime.now(),
           registeredAt: DateTime.now(),
           isEmailVerified: false,
           lastLoginAt: DateTime.now(),
           isActive: true,
-        ));
-
-        logger.i('📝 Player details and community stored in local storage');
-
-        // 2. Create Firebase Auth account with Firestore-first approach (no user object access)
-        String? userId;
-
-        try {
-          logger.i('🔥 Creating Firebase Auth account...');
-
-          // Try to create account without accessing user objects
-          try {
-            await firebaseServices.auth.createUserWithEmailAndPassword(
-              email: email,
-              password: password,
-            );
-            logger.i('✅ Firebase Auth account created successfully');
-
-            // Don't access credential.user - instead, search Firestore for the account
-            await Future.delayed(
-                const Duration(seconds: 2)); // Wait for Firebase to process
-
-            // Find the user by email in Firebase Auth through alternative method
-            final authUserList =
-                await firebaseServices.auth.fetchSignInMethodsForEmail(email);
-            if (authUserList.isNotEmpty) {
-              logger.i('🔍 Confirmed Firebase Auth account exists for: $email');
-
-              // Generate a predictable temporary ID until we can verify the real one
-              // We'll verify the real UID after email verification
-              userId =
-                  'temp_${email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}_${DateTime.now().millisecondsSinceEpoch}';
-              logger.i('📝 Using temporary ID for registration: $userId');
-            } else {
-              throw Exception('Account creation verification failed');
-            }
-          } catch (authError) {
-            logger.w('🔄 Firebase Auth creation failed: $authError');
-
-            // If email already in use, verify account exists and generate temp ID
-            if (authError.toString().contains('email-already-in-use')) {
-              logger
-                  .i('📧 Email already in use, verifying existing account...');
-
-              // Verify the account exists through fetchSignInMethodsForEmail
-              try {
-                final signInMethods = await firebaseServices.auth
-                    .fetchSignInMethodsForEmail(email);
-                if (signInMethods.isNotEmpty) {
-                  // Account confirmed to exist, generate temp ID
-                  userId =
-                      'temp_${email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}_${DateTime.now().millisecondsSinceEpoch}';
-                  logger.i(
-                      '✅ Existing Firebase Auth account confirmed, using temp ID: $userId');
-                } else {
-                  throw AuthFailure(
-                      message: 'Unable to verify existing account');
-                }
-              } catch (verifyError) {
-                logger.e('❌ Account verification failed: $verifyError');
-                throw AuthFailure(
-                    message: 'Failed to verify account: $verifyError');
-              }
-            } else {
-              throw AuthFailure(
-                  message: 'Failed to create account: $authError');
-            }
-          }
-
-          if (userId == null) {
-            throw AuthFailure(message: 'Failed to establish user ID');
-          }
-
-          logger.i('✅ Firebase Auth setup completed with ID: $userId');
-        } catch (e) {
-          logger.e('🔥 Critical error in Firebase Auth: $e');
-          return Left(AuthFailure(message: 'Authentication failed: $e'));
-        }
-
-        // 3. Send email verification via EmailService (bypassing Firebase Auth user object)
-        bool emailVerificationSent = false;
-        try {
-          if (userId != null) {
-            logger.i(
-                '🔄 Attempting to send email verification via EmailService...');
-
-            // Generate verification code
-            final verificationCode =
-                DateTime.now().millisecondsSinceEpoch.toString();
-
-            // Store verification info in temporary collection
-            await firebaseServices.firestore
-                .collection('emailVerifications')
-                .doc(email)
-                .set({
-              'email': email,
-              'verificationCode': verificationCode,
-              'userId': userId,
-              'userType': 'player',
-              'createdAt': FieldValue.serverTimestamp(),
-              'expiresAt': DateTime.now()
-                  .add(const Duration(hours: 24))
-                  .toIso8601String(),
-            });
-
-            // Send verification email using EmailService
-            emailVerificationSent = await emailService.sendVerificationEmail(
-              email: email,
-              fullName: fullName,
-              verificationCode: verificationCode,
-              userType: 'player',
-            );
-
-            if (emailVerificationSent) {
-              logger.i('✅ Email verification sent successfully to: $email');
-            } else {
-              logger.w('⚠️ Failed to send verification email');
-            }
-          } else {
-            logger.e('❌ Cannot send email verification - userId is null');
-            throw Exception('User ID is null, cannot send verification');
-          }
-        } catch (verificationError) {
-          logger.w('⚠️ Failed to send email verification: $verificationError');
-          // Continue without email verification for now - user can verify later
-          logger.i('📝 Continuing registration without email verification');
-        }
-
-        // If Firebase email verification failed, log the issue but continue
-        if (!emailVerificationSent) {
-          logger.w(
-              '⚠️ Email verification not sent - user will need to request resend');
-        }
-
-        // 4. Create player user model with pending payment status
-        final userModel = UserModel(
-          id: userId,
-          fullName: fullName,
-          email: email,
-          phoneNumber: phoneNumber,
-          userType: 'player',
-          communityId: communityId,
-          playerPaymentId: paymentId,
-          playerPaymentStatus: PaymentStatus.pending,
-          paymentStatus: false, // Payment not completed
-          createdAt: DateTime.now(),
-          registeredAt: DateTime.now(),
-          isEmailVerified: false, // Will be true after email verification
-          lastLoginAt: DateTime.now(),
-          isActive: true,
         );
 
-        // 5. Store or update in Firestore with error handling
+        // 4. Store user data in Firestore using the Firebase Auth UID as document ID
+        await firebaseServices.firestore
+            .collection('users')
+            .doc(userId) // Use Firebase Auth UID as document ID
+            .set(userModel.toJson());
+
+        logger.i('✅ Player document created in Firestore with ID: $userId');
+
+        // 5. Send email verification using Firebase Auth built-in method
         try {
-          await firebaseServices.firestore
-              .collection('users')
-              .doc(userId)
-              .set(userModel.toJson(), SetOptions(merge: true));
-          logger.i('✅ User data stored in Firestore');
-        } catch (firestoreError) {
-          logger.e('🔥 Firestore storage error: $firestoreError');
-          return Left(ServerFailure(
-              message:
-                  'Failed to store user data: ${firestoreError.toString()}'));
+          await credential.user!.sendEmailVerification();
+          logger.i('✅ Email verification sent to: $email');
+        } catch (emailError) {
+          logger.w('⚠️ Email verification failed: $emailError');
+          // Continue registration - user can verify later
         }
 
-        // Note: Tokens will be stored after email verification
-        // User cannot access home until payment is completed
-        logger.i(
-            '✅ Player registration initiated. Awaiting email verification and payment.');
+        // 6. Cache user locally for offline access
+        await localDataSource.cacheUser(userModel);
 
+        logger.i('✅ Player registration completed successfully');
         return Right(userModel.toEntity());
+      } on FirebaseAuthException catch (e) {
+        logger.e('🔥 Firebase Auth error: ${e.code} - ${e.message}');
+        return Left(AuthFailure(message: _getAuthErrorMessage(e.code)));
       } catch (e) {
         logger.e('🔥 Player registration error: $e');
         return Left(
@@ -618,6 +343,22 @@ class AuthRepositoryImpl implements AuthRepository {
       }
     } else {
       return Left(NetworkFailure(message: 'No internet connection'));
+    }
+  }
+
+  /// Helper method to convert Firebase Auth error codes to user-friendly messages
+  String _getAuthErrorMessage(String errorCode) {
+    switch (errorCode) {
+      case 'email-already-in-use':
+        return 'An account with this email already exists. Please use a different email or sign in.';
+      case 'weak-password':
+        return 'Password is too weak. Please choose a stronger password.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'operation-not-allowed':
+        return 'Email/password accounts are not enabled. Please contact support.';
+      default:
+        return 'Registration failed. Please try again.';
     }
   }
 

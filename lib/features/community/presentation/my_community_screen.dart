@@ -11,12 +11,12 @@ import 'package:pool_billiard_app/widget/buttons/primary_button.dart';
 import 'package:pool_billiard_app/widget/display/loading_indicator.dart';
 
 /// My Community Screen
-/// 
+///
 /// Shows the user's current community information
 /// Only accessible to paid players, not basic users
 class MyCommunityScreen extends StatelessWidget {
   static const String routeName = '/my-community';
-  
+
   const MyCommunityScreen({Key? key}) : super(key: key);
 
   @override
@@ -26,8 +26,9 @@ class MyCommunityScreen extends StatelessWidget {
         if (authState is AuthAuthenticated) {
           // Check if user is a paid player based on their membership type
           // For Kenya Pool Billiards, players have paid the KSh 500 fee
-          final isPaidPlayer = authState.user.isPlayer; // Using the provided getter in User entity
-          
+          final isPaidPlayer = authState
+              .user.isPlayer; // Using the provided getter in User entity
+
           if (isPaidPlayer) {
             return BlocProvider(
               create: (context) => sl<CommunityBloc>()
@@ -162,10 +163,12 @@ class _MyCommunityView extends StatelessWidget {
                 PrimaryButton(
                   text: 'Try Again',
                   onPressed: () => context.read<CommunityBloc>().add(
-                    LoadUserCommunityEvent(
-                      (context.read<AuthBloc>().state as AuthAuthenticated).user.id,
-                    ),
-                  ),
+                        LoadUserCommunityEvent(
+                          (context.read<AuthBloc>().state as AuthAuthenticated)
+                              .user
+                              .id,
+                        ),
+                      ),
                 ),
               ],
             ),
@@ -216,7 +219,7 @@ class _MyCommunityView extends StatelessWidget {
 
         // User has a community
         final community = state.userCommunity!;
-        
+
         return SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,7 +273,8 @@ class _MyCommunityView extends StatelessWidget {
                     const SizedBox(height: 16),
                     // Member count
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: AppTheme.accentColor,
                         borderRadius: BorderRadius.circular(20),
@@ -294,7 +298,7 @@ class _MyCommunityView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Community Statistics',
+                      'Community Information',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -302,20 +306,20 @@ class _MyCommunityView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Statistics cards
+                    // Information cards
                     Row(
                       children: [
                         _buildStatCard(
-                          title: 'Points',
-                          value: community.communityPoints.toStringAsFixed(0),
-                          icon: Icons.emoji_events,
+                          title: 'Members',
+                          value: community.memberCount.toString(),
+                          icon: Icons.people,
                           flex: 1,
                         ),
                         const SizedBox(width: 16),
                         _buildStatCard(
-                          title: 'Ranking',
-                          value: community.rankingTier,
-                          icon: Icons.trending_up,
+                          title: 'Followers',
+                          value: community.followerCount.toString(),
+                          icon: Icons.favorite,
                           flex: 1,
                         ),
                       ],
@@ -324,16 +328,16 @@ class _MyCommunityView extends StatelessWidget {
                     Row(
                       children: [
                         _buildStatCard(
-                          title: 'Trophies',
-                          value: community.trophyCount.toString(),
-                          icon: Icons.emoji_events_outlined,
+                          title: 'Skill Level',
+                          value: community.skillLevel,
+                          icon: Icons.trending_up,
                           flex: 1,
                         ),
                         const SizedBox(width: 16),
                         _buildStatCard(
-                          title: 'Achievements',
-                          value: community.achievementCount.toString(),
-                          icon: Icons.star_outline,
+                          title: 'Tags',
+                          value: community.tags.length.toString(),
+                          icon: Icons.tag,
                           flex: 1,
                         ),
                       ],
@@ -341,9 +345,9 @@ class _MyCommunityView extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Description
-              if (community.description != null && community.description!.isNotEmpty)
+              if (community.description.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Card(
@@ -362,7 +366,7 @@ class _MyCommunityView extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            community.description!,
+                            community.description,
                             style: const TextStyle(
                               fontSize: 16,
                               color: AppTheme.textDark,
@@ -373,9 +377,9 @@ class _MyCommunityView extends StatelessWidget {
                     ),
                   ),
                 ),
-              
-              // Achievements section
-              if (community.hasAchievements)
+
+              // Tags section
+              if (community.tags.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Card(
@@ -385,7 +389,7 @@ class _MyCommunityView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Achievements',
+                            'Tags',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -396,12 +400,14 @@ class _MyCommunityView extends StatelessWidget {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: (community.achievements ?? []).map((achievement) {
+                            children: community.tags.map((tag) {
                               return Chip(
-                                backgroundColor: AppTheme.accentColor.withValues(alpha: 51), // 0.2 * 255 ≈ 51
-                                avatar: const Icon(Icons.star, color: AppTheme.accentColor, size: 18),
+                                backgroundColor: AppTheme.accentColor
+                                    .withValues(alpha: 51), // 0.2 * 255 ≈ 51
+                                avatar: const Icon(Icons.tag,
+                                    color: AppTheme.accentColor, size: 18),
                                 label: Text(
-                                  achievement,
+                                  tag,
                                   style: const TextStyle(
                                     color: AppTheme.textDark,
                                     fontWeight: FontWeight.bold,
@@ -415,7 +421,7 @@ class _MyCommunityView extends StatelessWidget {
                     ),
                   ),
                 ),
-              
+
               const SizedBox(height: 32),
             ],
           ),
@@ -423,7 +429,7 @@ class _MyCommunityView extends StatelessWidget {
       },
     );
   }
-  
+
   Widget _buildStatCard({
     required String title,
     required String value,

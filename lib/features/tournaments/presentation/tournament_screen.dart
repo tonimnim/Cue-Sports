@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/config/theme.dart';
 import '../../../core/di/injection_container.dart' as di;
-import '../presentation/bloc/tournament_bloc.dart';
-import '../presentation/bloc/tournament_event.dart';
-import '../presentation/bloc/tournament_state.dart';
 import '../domain/entities/tournament.dart';
-import '../../../navigation/bottom_navigation.dart';
+import '../domain/entities/match.dart';
+import 'bloc/tournament_bloc.dart';
+import 'bloc/tournament_event.dart';
+import 'bloc/tournament_state.dart';
+import 'widgets/tournament_card.dart';
+import 'widgets/live_tournament_card.dart';
+import '../../payment/domain/entities/payment.dart' as payment_entity;
 
 class TournamentScreen extends StatefulWidget {
   const TournamentScreen({Key? key}) : super(key: key);
@@ -14,363 +19,507 @@ class TournamentScreen extends StatefulWidget {
   State<TournamentScreen> createState() => _TournamentScreenState();
 }
 
-class _TournamentScreenState extends State<TournamentScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-  TournamentStatus? _selectedStatus;
-  int _selectedIndex = 1; // Tournament tab index
+class _TournamentScreenState extends State<TournamentScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  late TournamentBloc _tournamentBloc;
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
-      });
-    });
+    _tabController = TabController(length: 4, vsync: this);
+    _tournamentBloc = di.sl<TournamentBloc>();
+
+    // Initialize data loading
+    _loadAllData();
+  }
+
+  void _loadAllData() {
+    print('🏆 TOURNAMENT SCREEN: Loading all tournament data...');
+
+    // Load ALL tournaments first
+    _tournamentBloc.add(const LoadTournamentsEvent());
+
+    // Load specific tournament categories
+    _tournamentBloc.add(const LoadFeaturedTournamentsEvent());
+    _tournamentBloc.add(const LoadActiveTournamentsEvent());
+
+    // Load live matches
+    _tournamentBloc.add(const LoadLiveMatchesEvent());
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => di.sl<TournamentBloc>()
-        ..add(LoadTournamentsEvent())
-        ..add(LoadFeaturedTournamentsEvent()),
+    return BlocProvider.value(
+      value: _tournamentBloc,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0F4A22),
+        backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('Tournaments', style: TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFF0F4A22),
-          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            'Tournaments',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          backgroundColor: AppTheme.backgroundColor,
           elevation: 0,
+          centerTitle: false,
           actions: [
             IconButton(
-              icon: const Icon(Icons.add, color: Colors.white),
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              onPressed: _refreshData,
+            ),
+            IconButton(
+              icon: const Icon(Icons.search, color: Colors.white),
+              onPressed: () => _showSearchDialog(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings, color: Colors.white),
               onPressed: () {
-                // Navigate to create tournament
-                Navigator.pushNamed(context, '/create-tournament');
+                // TODO: Navigate to tournament settings
               },
             ),
           ],
         ),
-        body: BlocBuilder<TournamentBloc, TournamentState>(
-          builder: (context, state) {
-            if (state is TournamentLoading) {
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              );
-            } else if (state is TournamentError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error, color: Colors.white, size: 64),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Error loading tournaments',
-                      style: TextStyle(color: Colors.white, fontSize: 18),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      state.message,
-                      style: const TextStyle(color: Colors.white70),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<TournamentBloc>().add(LoadTournamentsEvent());
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
+        body: BlocConsumer<TournamentBloc, TournamentState>(
+          listener: (context, state) {
+            // Debug logging
+            print('🏆 TOURNAMENT STATE UPDATE:');
+            print('   - Total tournaments: ${state.tournaments.length}');
+            print(
+                '   - Featured tournaments: ${state.featuredTournaments.length}');
+            print('   - Active tournaments: ${state.activeTournaments.length}');
+            print('   - Live matches: ${state.liveMatches.length}');
+            print('   - Loading tournaments: ${state.isLoadingTournaments}');
+            print('   - Loading matches: ${state.isLoadingMatches}');
+            print('   - Has error: ${state.hasError}');
+            if (state.hasError) {
+              print('   - Error message: ${state.errorMessage}');
+            }
+
+            // Show error messages
+            if (state.hasError && state.errorMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error: ${state.errorMessage}'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 5),
+                  action: SnackBarAction(
+                    label: 'Retry',
+                    textColor: Colors.white,
+                    onPressed: _refreshData,
+                  ),
                 ),
               );
-            } else if (state is TournamentLoaded) {
-              return _buildTournamentContent(context, state);
             }
-            
-            return const Center(
-              child: Text('Welcome to Tournaments', style: TextStyle(color: Colors.white)),
+
+            // Show success message when tournaments are loaded
+            if (!state.isLoadingTournaments &&
+                state.tournaments.isNotEmpty &&
+                !state.hasError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content:
+                      Text('Loaded ${state.tournaments.length} tournaments'),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+          builder: (context, state) {
+            return Column(
+              children: [
+                // Tab bar
+                TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(text: 'All'),
+                    Tab(text: 'Featured'),
+                    Tab(text: 'Live'),
+                    Tab(text: 'Upcoming'),
+                  ],
+                  labelColor: AppTheme.accentColor,
+                  unselectedLabelColor: Colors.white70,
+                  indicatorColor: AppTheme.accentColor,
+                ),
+                // Tab content
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildAllTournamentsTab(state),
+                      _buildFeaturedTab(state),
+                      _buildLiveTab(state),
+                      _buildUpcomingTab(state),
+                    ],
+                  ),
+                ),
+              ],
             );
           },
         ),
-        bottomNavigationBar: AppBottomNavigation(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-        ),
       ),
     );
   }
 
-  Widget _buildTournamentContent(BuildContext context, TournamentLoaded state) {
-    List<Tournament> filteredTournaments = _getFilteredTournaments(state.tournaments);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Search bar
-          _buildSearchBar(),
-          const SizedBox(height: 20),
-          
-          // Status filter
-          _buildStatusFilter(),
-          const SizedBox(height: 20),
-          
-          // Featured tournaments section
-          if (state.featuredTournaments.isNotEmpty) ...[
-            _buildSectionHeader('Featured Tournaments'),
-            const SizedBox(height: 10),
-            _buildTournamentGrid(state.featuredTournaments.take(2).toList()),
-            const SizedBox(height: 20),
-          ],
-          
-          // All tournaments section
-          _buildSectionHeader('All Tournaments'),
-          const SizedBox(height: 10),
-          _buildTournamentGrid(filteredTournaments),
-        ],
-      ),
-    );
+  void _refreshData() {
+    print('🔄 TOURNAMENT SCREEN: Refreshing all data...');
+    _loadAllData();
   }
 
-  Widget _buildSearchBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TextField(
-        controller: _searchController,
-        decoration: const InputDecoration(
-          hintText: 'Search tournaments...',
-          prefixIcon: Icon(Icons.search, color: Colors.grey),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.all(16),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusFilter() {
-    return SizedBox(
-      height: 40,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _buildStatusChip('All', null),
-          const SizedBox(width: 8),
-          _buildStatusChip('Open', TournamentStatus.registration_open),
-          const SizedBox(width: 8),
-          _buildStatusChip('Upcoming', TournamentStatus.upcoming),
-          const SizedBox(width: 8),
-          _buildStatusChip('In Progress', TournamentStatus.in_progress),
-          const SizedBox(width: 8),
-          _buildStatusChip('Completed', TournamentStatus.completed),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusChip(String label, TournamentStatus? status) {
-    final isSelected = _selectedStatus == status;
-    
-    return FilterChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? Colors.white : const Color(0xFF0F4A22),
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      selected: isSelected,
-      onSelected: (selected) {
-        setState(() {
-          _selectedStatus = selected ? status : null;
-        });
+  Widget _buildAllTournamentsTab(TournamentState state) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        _refreshData();
+        // Wait a bit for the refresh to complete
+        await Future.delayed(const Duration(milliseconds: 500));
       },
-      backgroundColor: Colors.white,
-      selectedColor: const Color(0xFF0F4A22),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
-
-  Widget _buildTournamentGrid(List<Tournament> tournaments) {
-    if (tournaments.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32.0),
-          child: Text(
-            'No tournaments found',
-            style: TextStyle(color: Colors.white70, fontSize: 16),
-          ),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: tournaments.length,
-      itemBuilder: (context, index) {
-        final tournament = tournaments[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12.0),
-          child: _buildTournamentCard(tournament),
-        );
-      },
-    );
-  }
-
-  Widget _buildTournamentCard(Tournament tournament) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        physics:
+            const AlwaysScrollableScrollPhysics(), // Ensures pull-to-refresh always works
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Tournament header
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    tournament.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F4A22),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                  ),
+            // Debug Information Card (only in debug mode)
+            if (const bool.fromEnvironment('dart.vm.product') == false) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
                 ),
-                const SizedBox(width: 8),
-                _buildStatusBadge(tournament.status),
-              ],
-            ),
-            const SizedBox(height: 8),
-            
-            // Tournament details
-            Row(
-              children: [
-                const Icon(Icons.sports_esports, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    tournament.type,
-                    style: const TextStyle(color: Colors.grey),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    tournament.location,
-                    style: const TextStyle(color: Colors.grey),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            
-            // Date and players
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        tournament.dateRange,
-                        style: const TextStyle(color: Colors.grey),
-                        overflow: TextOverflow.ellipsis,
+                    const Text(
+                      'Debug Info',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Total tournaments: ${state.tournaments.length}\n'
+                      'Featured: ${state.featuredTournaments.length}\n'
+                      'Active: ${state.activeTournaments.length}\n'
+                      'Loading: ${state.isLoadingTournaments}\n'
+                      'Error: ${state.hasError ? state.errorMessage : 'None'}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Row(
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Loading indicator
+            if (state.isLoadingTournaments)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(color: AppTheme.accentColor),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading tournaments from Firebase...',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Error state
+            if (state.hasError && state.errorMessage != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Column(
                   children: [
-                    const Icon(Icons.people, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
+                    const Icon(Icons.error, color: Colors.red, size: 48),
+                    const SizedBox(height: 16),
                     Text(
-                      '${tournament.currentPlayerCount}/${tournament.maxPlayers} players',
-                      style: const TextStyle(color: Colors.grey),
+                      'Failed to load tournaments',
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      state.errorMessage!,
+                      style: const TextStyle(color: Colors.white70),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _refreshData,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            
-            // Entry fee and register button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Entry Fee: KSh ${tournament.entryFee.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontSize: 16,
+              ),
+
+            // Show ALL tournaments
+            if (!state.isLoadingTournaments &&
+                state.tournaments.isNotEmpty) ...[
+              Row(
+                children: [
+                  const Text(
+                    'All Tournaments',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F4A22),
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 100,
-                  child: ElevatedButton(
-                    onPressed: tournament.canRegister
-                        ? () => _handleTournamentRegistration(tournament)
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F4A22),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      tournament.canRegister ? 'Register' : 'Full',
-                      style: const TextStyle(fontSize: 12),
+                      '${state.tournaments.length}',
+                      style: const TextStyle(
+                        color: AppTheme.accentColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Display ALL tournaments from Firebase with proper constraints
+              Column(
+                children: state.tournaments.map((tournament) {
+                  final isFeatured = tournament.isFeatured ||
+                      tournament.type == TournamentType.national;
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: TournamentCard(
+                      tournament: tournament,
+                      isFeatured: isFeatured,
+                      onTap: () => _navigateToTournamentDetails(tournament),
+                      onRegister: () =>
+                          _handleTournamentRegistration(tournament),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+
+            // Empty State (only show if not loading and no tournaments)
+            if (!state.isLoadingTournaments &&
+                state.tournaments.isEmpty &&
+                !state.hasError)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.emoji_events_outlined,
+                      size: 64,
+                      color: Colors.white.withOpacity(0.3),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No tournaments available',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Check back soon for new tournaments!',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _refreshData,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Refresh'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accentColor,
+                        foregroundColor: Colors.black,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeaturedTab(TournamentState state) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        context
+            .read<TournamentBloc>()
+            .add(const LoadFeaturedTournamentsEvent());
+      },
+      child: state.isLoadingTournaments
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.accentColor))
+          : state.featuredTournaments.isEmpty
+              ? _buildEmptyState('No featured tournaments at the moment')
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: state.featuredTournaments.length,
+                  itemBuilder: (context, index) {
+                    final tournament = state.featuredTournaments[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TournamentCard(
+                        tournament: tournament,
+                        isFeatured: true,
+                        onTap: () => _navigateToTournamentDetails(tournament),
+                        onRegister: () =>
+                            _handleTournamentRegistration(tournament),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+
+  Widget _buildLiveTab(TournamentState state) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<TournamentBloc>().add(const LoadLiveMatchesEvent());
+      },
+      child: state.isLoadingMatches
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.accentColor))
+          : state.liveMatches.isEmpty
+              ? _buildEmptyState('No live matches at the moment')
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: state.liveMatches.length,
+                  itemBuilder: (context, index) {
+                    final match = state.liveMatches[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: LiveTournamentCard(
+                        match: match,
+                        onTap: () => _navigateToMatchDetails(match),
+                        onViewLive: () => _openLiveStream(match),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+
+  Widget _buildUpcomingTab(TournamentState state) {
+    // Filter tournaments for upcoming status
+    final upcomingTournaments = state.tournaments
+        .where((tournament) =>
+            tournament.status == TournamentStatus.upcoming ||
+            tournament.status == TournamentStatus.registration_open ||
+            tournament.status == TournamentStatus.registration_closed ||
+            (tournament.status == TournamentStatus.active &&
+                !tournament.hasStarted))
+        .toList();
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<TournamentBloc>().add(const LoadTournamentsEvent(
+              status: TournamentStatus.upcoming,
+            ));
+      },
+      child: upcomingTournaments.isEmpty
+          ? _buildEmptyState('No upcoming tournaments')
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: upcomingTournaments.length,
+              itemBuilder: (context, index) {
+                final tournament = upcomingTournaments[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: TournamentCard(
+                    tournament: tournament,
+                    onTap: () => _navigateToTournamentDetails(tournament),
+                    onRegister: () => _handleTournamentRegistration(tournament),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.emoji_events_outlined,
+              size: 64,
+              color: Colors.white.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _refreshData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accentColor,
+                foregroundColor: Colors.black,
+              ),
             ),
           ],
         ),
@@ -378,106 +527,72 @@ class _TournamentScreenState extends State<TournamentScreen> {
     );
   }
 
-  Widget _buildStatusBadge(TournamentStatus status) {
-    Color badgeColor;
-    String statusText;
-    
-    switch (status) {
-      case TournamentStatus.upcoming:
-        badgeColor = Colors.blue;
-        statusText = 'Upcoming';
-        break;
-      case TournamentStatus.registration_open:
-        badgeColor = Colors.green;
-        statusText = 'Open';
-        break;
-      case TournamentStatus.registration_closed:
-        badgeColor = Colors.orange;
-        statusText = 'Closed';
-        break;
-      case TournamentStatus.in_progress:
-        badgeColor = Colors.purple;
-        statusText = 'Live';
-        break;
-      case TournamentStatus.completed:
-        badgeColor = Colors.grey;
-        statusText = 'Completed';
-        break;
-      case TournamentStatus.cancelled:
-        badgeColor = Colors.red;
-        statusText = 'Cancelled';
-        break;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: badgeColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        statusText,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
+  void _showSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        title: const Text(
+          'Search Tournaments',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          decoration: const InputDecoration(
+            hintText: 'Enter tournament name...',
+            hintStyle: TextStyle(color: Colors.white54),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: AppTheme.accentColor),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: AppTheme.accentColor),
+            ),
+          ),
+          style: const TextStyle(color: Colors.white),
+          onSubmitted: (query) {
+            Navigator.pop(context);
+            if (query.isNotEmpty) {
+              context.read<TournamentBloc>().add(
+                    SearchTournamentsEvent(query: query),
+                  );
+            }
+          },
         ),
       ),
     );
   }
 
-  List<Tournament> _getFilteredTournaments(List<Tournament> tournaments) {
-    List<Tournament> filtered = tournaments;
-    
-    // Filter by status
-    if (_selectedStatus != null) {
-      filtered = filtered.where((tournament) => tournament.status == _selectedStatus).toList();
-    }
-    
-    // Filter by search query
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((tournament) {
-        return tournament.name.toLowerCase().contains(_searchQuery) ||
-               tournament.type.toLowerCase().contains(_searchQuery) ||
-               tournament.location.toLowerCase().contains(_searchQuery);
-      }).toList();
-    }
-    
-    return filtered;
+  void _navigateToTournamentDetails(Tournament tournament) {
+    // TODO: Navigate to tournament details
+    print('Navigate to tournament: ${tournament.name}');
   }
 
   void _handleTournamentRegistration(Tournament tournament) {
-    // Navigate to tournament registration/payment
-    Navigator.pushNamed(
-      context,
-      '/payment',
-      arguments: {
-        'paymentType': 'tournament_registration',
-        'typeId': tournament.id,
-        'userId': 'current_user', // Get from auth
-        'amount': tournament.entryFee,
-      },
-    );
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    
-    switch (index) {
-      case 0: // Home
-        Navigator.pushReplacementNamed(context, '/home');
-        break;
-      case 1: // Tournaments
-        // Already on tournaments
-        break;
-      case 2: // Communities
-        Navigator.pushReplacementNamed(context, '/communities');
-        break;
-      case 3: // Shop
-        Navigator.pushReplacementNamed(context, '/shop');
-        break;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      context.read<TournamentBloc>().add(
+            RegisterForTournamentEvent(
+              tournamentId: tournament.id,
+              userId: user.uid,
+              communityId: '', // You might need to get this from user profile
+            ),
+          );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to register for tournaments'),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
   }
-} 
+
+  void _navigateToMatchDetails(Match match) {
+    // TODO: Navigate to match details
+    print('Navigate to match: ${match.id}');
+  }
+
+  void _openLiveStream(Match match) {
+    // TODO: Open live stream
+    print('Open live stream for match: ${match.id}');
+  }
+}

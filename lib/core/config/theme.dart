@@ -6,21 +6,27 @@ class AppTheme {
   // Private constructor to prevent instantiation
   AppTheme._();
 
-  // Color constants based on design
+  // Color constants based on design system
   static const Color primaryColor = Color(0xFF103621); // Dark green
   static const Color accentColor = Color(0xFFFFC107); // Yellow/Gold
   static const Color secondary1 = Color(0xFF16543A); // Medium green
   static const Color secondary2 = Color(0xFF0D2819); // Very dark green
 
-  // Additional colors from the design
-  static const Color backgroundColor = Color(0xFF0A0E21); // Dark background
-  static const Color cardColor = Color(0xFF1D1E33); // Card background
+  // Additional colors from the design system
+  static const Color backgroundColor = Color(
+      0xFF002711); // App background (global dark theme) - color-bg-primary
+  static const Color cardColor =
+      Color(0xFF16543A); // Card background (medium green to match theme)
   static const Color textDark = Color(0xFF333333); // Dark text
   static const Color textLight = Colors.white; // Light text
-  static const Color formBackground = Color(0xFF1D1E33); // Form background
+  static const Color formBackground =
+      Color(0xFF16543A); // Form background (medium green to match theme)
   static const Color errorColor = Color(0xFFE53935); // Error red
   static const Color successColor = Color(0xFF4CAF50); // Success green
   static const Color warningColor = Color(0xFFFFA726); // Warning orange
+  static const Color infoColor = Color(0xFF2196F3); // Info blue
+  static const Color secondaryColor =
+      Color(0xFFFFC107); // Same as accentColor for consistency
 
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
@@ -41,28 +47,63 @@ class AppTheme {
     ],
   );
 
-  // Text styles using Google Fonts
-  static TextStyle get headingStyle => GoogleFonts.poppins(
+  // Typography System - Raleway Font Family
+  // H1 - Section Headers (24px • Bold • Raleway)
+  static TextStyle get h1Style => GoogleFonts.raleway(
         fontSize: 24,
-        fontWeight: FontWeight.bold,
+        fontWeight: FontWeight.w700, // Bold
         color: textLight,
       );
 
-  static TextStyle get subheadingStyle => GoogleFonts.poppins(
+  // H2 - Card Titles (20px • SemiBold • Raleway)
+  static TextStyle get h2Style => GoogleFonts.raleway(
+        fontSize: 20,
+        fontWeight: FontWeight.w600, // SemiBold
+        color: textLight,
+      );
+
+  // H3 - Categories (18px • Medium • Raleway)
+  static TextStyle get h3Style => GoogleFonts.raleway(
         fontSize: 18,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w500, // Medium
         color: textLight,
       );
 
-  static TextStyle get bodyStyle => GoogleFonts.poppins(
+  // Body Large - General body text (16px • Regular • Raleway)
+  static TextStyle get bodyLargeStyle => GoogleFonts.raleway(
         fontSize: 16,
-        fontWeight: FontWeight.normal,
+        fontWeight: FontWeight.w400, // Regular
         color: textLight,
       );
 
-  static TextStyle get buttonTextStyle => GoogleFonts.poppins(
+  // Body Small - Meta information (14px • Regular • Raleway)
+  static TextStyle get bodySmallStyle => GoogleFonts.raleway(
+        fontSize: 14,
+        fontWeight: FontWeight.w400, // Regular
+        color: textLight,
+      );
+
+  // Caption - Tags, badges (12px • Medium • Raleway)
+  static TextStyle get captionStyle => GoogleFonts.raleway(
+        fontSize: 12,
+        fontWeight: FontWeight.w500, // Medium
+        color: textLight,
+      );
+
+  // Overline - Timestamps, brackets (10px • Regular • Raleway)
+  static TextStyle get overlineStyle => GoogleFonts.raleway(
+        fontSize: 10,
+        fontWeight: FontWeight.w400, // Regular
+        color: textLight,
+      );
+
+  // Legacy styles for backward compatibility
+  static TextStyle get headingStyle => h1Style;
+  static TextStyle get subheadingStyle => h3Style;
+  static TextStyle get bodyStyle => bodyLargeStyle;
+  static TextStyle get buttonTextStyle => GoogleFonts.raleway(
         fontSize: 16,
-        fontWeight: FontWeight.bold,
+        fontWeight: FontWeight.w600, // SemiBold for buttons
         color: textDark,
       );
 
@@ -84,19 +125,19 @@ class AppTheme {
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: true,
-      titleTextStyle: GoogleFonts.poppins(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-        color: textLight,
-      ),
+      titleTextStyle: h2Style,
       iconTheme: const IconThemeData(color: textLight),
     ),
     textTheme: TextTheme(
-      headlineLarge: headingStyle,
-      headlineMedium: subheadingStyle,
-      bodyLarge: bodyStyle,
-      bodyMedium: GoogleFonts.poppins(fontSize: 14, color: textLight),
+      headlineLarge: h1Style,
+      headlineMedium: h2Style,
+      headlineSmall: h3Style,
+      bodyLarge: bodyLargeStyle,
+      bodyMedium: bodySmallStyle,
+      bodySmall: captionStyle,
       labelLarge: buttonTextStyle,
+      labelMedium: captionStyle,
+      labelSmall: overlineStyle,
     ),
     cardTheme: CardTheme(
       color: cardColor,
@@ -123,7 +164,7 @@ class AppTheme {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: accentColor,
-        textStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        textStyle: GoogleFonts.raleway(fontWeight: FontWeight.w600),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
       ),
     ),
@@ -147,8 +188,8 @@ class AppTheme {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: errorColor, width: 2),
       ),
-      hintStyle: GoogleFonts.poppins(color: Colors.grey[400]),
-      labelStyle: GoogleFonts.poppins(color: Colors.grey[300]),
+      hintStyle: GoogleFonts.raleway(color: Colors.grey[400]),
+      labelStyle: GoogleFonts.raleway(color: Colors.grey[300]),
       prefixIconColor: Colors.grey[400],
       suffixIconColor: Colors.grey[400],
     ),
@@ -159,22 +200,15 @@ class AppTheme {
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: cardColor,
-      contentTextStyle: GoogleFonts.poppins(color: textLight),
+      contentTextStyle: GoogleFonts.raleway(color: textLight),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       behavior: SnackBarBehavior.floating,
     ),
     dialogTheme: DialogTheme(
       backgroundColor: cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      titleTextStyle: GoogleFonts.poppins(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-        color: textLight,
-      ),
-      contentTextStyle: GoogleFonts.poppins(
-        fontSize: 16,
-        color: textLight,
-      ),
+      titleTextStyle: h2Style,
+      contentTextStyle: bodyLargeStyle,
     ),
   );
 

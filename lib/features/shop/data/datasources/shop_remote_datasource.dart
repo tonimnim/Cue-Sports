@@ -38,7 +38,9 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   Future<List<ProductModel>> getProducts() async {
     try {
       final snapshot = await _firebaseServices.productsCollection.get();
-      return snapshot.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
+      return snapshot.docs
+          .map((doc) => ProductModel.fromFirestore(doc))
+          .toList();
     } catch (e) {
       throw ServerException('Failed to get products: $e');
     }
@@ -50,7 +52,9 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
       final snapshot = await _firebaseServices.productsCollection
           .where('category', isEqualTo: category)
           .get();
-      return snapshot.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
+      return snapshot.docs
+          .map((doc) => ProductModel.fromFirestore(doc))
+          .toList();
     } catch (e) {
       throw ServerException('Failed to get products by category: $e');
     }
@@ -62,7 +66,9 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
       final snapshot = await _firebaseServices.productsCollection
           .where('isFeatured', isEqualTo: true)
           .get();
-      return snapshot.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
+      return snapshot.docs
+          .map((doc) => ProductModel.fromFirestore(doc))
+          .toList();
     } catch (e) {
       throw ServerException('Failed to get featured products: $e');
     }
@@ -74,7 +80,9 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
       final snapshot = await _firebaseServices.productsCollection
           .where('isPopular', isEqualTo: true)
           .get();
-      return snapshot.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
+      return snapshot.docs
+          .map((doc) => ProductModel.fromFirestore(doc))
+          .toList();
     } catch (e) {
       throw ServerException('Failed to get popular products: $e');
     }
@@ -86,7 +94,9 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
       final snapshot = await _firebaseServices.productsCollection
           .where('isNewArrival', isEqualTo: true)
           .get();
-      return snapshot.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
+      return snapshot.docs
+          .map((doc) => ProductModel.fromFirestore(doc))
+          .toList();
     } catch (e) {
       throw ServerException('Failed to get new arrivals: $e');
     }
@@ -126,11 +136,11 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
           .get();
 
       final List<CartItemModel> cartItems = [];
-      
+
       for (final doc in snapshot.docs) {
         cartItems.add(CartItemModel.fromFirestore(doc));
       }
-      
+
       return cartItems;
     } catch (e) {
       throw ServerException('Failed to get cart items: $e');
@@ -140,8 +150,9 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   @override
   Future<void> addToCart(CartItemModel cartItem) async {
     try {
-      final userId = _firebaseServices.auth.currentUser?.uid;
-      if (userId == null) throw ServerException('User not authenticated');
+      // Use consistent user ID approach - for MVP we'll use 'current_user'
+      // In production, this would use proper user authentication
+      final userId = 'current_user';
 
       // Check if item already exists in cart
       final existingItems = await _firebaseServices.cartsCollection
@@ -155,7 +166,7 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
         final existingDoc = existingItems.docs.first;
         final existingData = existingDoc.data();
         final newQuantity = (existingData['quantity'] ?? 0) + cartItem.quantity;
-        
+
         await existingDoc.reference.update({
           'quantity': newQuantity,
           'updatedAt': FieldValue.serverTimestamp(),
@@ -175,8 +186,8 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   @override
   Future<void> updateCartItem(CartItemModel cartItem) async {
     try {
-      final userId = _firebaseServices.auth.currentUser?.uid;
-      if (userId == null) throw ServerException('User not authenticated');
+      // Use consistent user ID approach - for MVP we'll use 'current_user'
+      final userId = 'current_user';
 
       await _firebaseServices.cartsCollection
           .doc(userId)
@@ -225,15 +236,14 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
     try {
       final snapshot = await _firebaseServices.ordersCollection
           .where('userId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
           .get();
 
       final List<ShopOrderModel> orders = [];
-      
+
       for (final doc in snapshot.docs) {
         orders.add(ShopOrderModel.fromFirestore(doc));
       }
-      
+
       return orders;
     } catch (e) {
       throw ServerException('Failed to get user orders: $e');
@@ -245,7 +255,7 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
     try {
       final doc = await _firebaseServices.ordersCollection.doc(orderId).get();
       if (!doc.exists) return null;
-      
+
       return ShopOrderModel.fromFirestore(doc);
     } catch (e) {
       throw ServerException('Failed to get order by id: $e');
@@ -255,7 +265,8 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   @override
   Future<String> createOrder(ShopOrderModel order) async {
     try {
-      final docRef = await _firebaseServices.ordersCollection.add(order.toFirestore());
+      final docRef =
+          await _firebaseServices.ordersCollection.add(order.toFirestore());
       return docRef.id;
     } catch (e) {
       throw ServerException('Failed to create order: $e');
@@ -272,4 +283,4 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
       throw ServerException('Failed to update order: $e');
     }
   }
-} 
+}

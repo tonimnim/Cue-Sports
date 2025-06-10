@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
-import '../../domain/entities/trophy.dart';
 import '../../domain/entities/community.dart';
 
 /// Model class for communities
@@ -8,253 +7,147 @@ class CommunityModel extends Community {
   const CommunityModel({
     required String id,
     required String name,
-    String? description,
-    required String location,
-    required String leaderId,
-    required CommunityLevel level,
-    required int totalPlayers,
-    required int points,
-    required int trophyCount,
-    required int followCount,
-    required List<String> playerIds,
-    required List<String> followerIds,
-    required List<Trophy> trophies,
-    required DateTime createdAt,
+    required String description,
+    required String initials,
     String? logoUrl,
-    DateTime? lastActivityAt,
-    String rankingTier = 'Intermediate',
-    int memberCount = 0,
-    int communityPoints = 0,
-    int achievementCount = 0,
-    List<String>? achievements,
+    required String location,
+    required String county,
+    required int memberCount,
+    required int followerCount,
+    List<String> followers = const [],
+    required DateTime createdAt,
+    required DateTime lastActivityAt,
+    required List<String> tags,
+    required String adminUserId,
   }) : super(
           id: id,
           name: name,
           description: description,
-          location: location,
-          leaderId: leaderId,
-          level: level,
-          totalPlayers: totalPlayers,
-          points: points,
-          trophyCount: trophyCount,
-          followCount: followCount,
-          playerIds: playerIds,
-          followerIds: followerIds,
-          trophies: trophies,
-          createdAt: createdAt,
+          initials: initials,
           logoUrl: logoUrl,
-          lastActivityAt: lastActivityAt,
-          rankingTier: rankingTier,
+          location: location,
+          county: county,
           memberCount: memberCount,
-          communityPoints: communityPoints,
-          achievementCount: achievementCount,
-          achievements: achievements,
+          followerCount: followerCount,
+          followers: followers,
+          createdAt: createdAt,
+          lastActivityAt: lastActivityAt,
+          tags: tags,
+          adminUserId: adminUserId,
         );
 
-  /// Create a CommunityModel from a map
+  /// Create a CommunityModel from a JSON map
   factory CommunityModel.fromJson(Map<String, dynamic> json) {
     return CommunityModel(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      description: json['description'] as String?,
-      location: json['location'] as String? ?? '',
-      leaderId: json['leaderId'] as String? ?? '',
-      level: CommunityLevel.values.firstWhere(
-        (e) => e.toString().split('.').last == (json['level'] as String? ?? 'local'),
-        orElse: () => CommunityLevel.local,
-      ),
-      totalPlayers: (json['totalPlayers'] as num?)?.toInt() ?? 0,
-      points: (json['points'] as num?)?.toInt() ?? 0,
-      trophyCount: (json['trophyCount'] as num?)?.toInt() ?? 0,
-      followCount: (json['followCount'] as num?)?.toInt() ?? 0,
-      playerIds: List<String>.from(json['playerIds'] as List? ?? []),
-      followerIds: List<String>.from(json['followerIds'] as List? ?? []),
-      trophies: (json['trophies'] as List? ?? [])
-          .map((e) => Trophy(
-                id: e['id'] as String? ?? '',
-                name: e['name'] as String? ?? '',
-                type: TrophyType.values.firstWhere(
-                  (t) => t.toString().split('.').last == (e['type'] as String? ?? 'regional'),
-                  orElse: () => TrophyType.regional,
-                ),
-                playerId: e['playerId'] as String? ?? '',
-                wonAt: _parseDateTime(e['wonAt']),
-              ))
-          .toList(),
-      createdAt: _parseDateTime(json['createdAt']),
+      description: json['description'] as String? ?? '',
+      initials: json['initials'] as String? ?? '',
       logoUrl: json['logoUrl'] as String?,
-      lastActivityAt: json['lastActivityAt'] != null
-          ? _parseDateTime(json['lastActivityAt'])
-          : null,
-      rankingTier: json['rankingTier'] as String? ?? 'Intermediate',
-      memberCount: (json['memberCount'] as num?)?.toInt() ?? 0,
-      communityPoints: (json['communityPoints'] as num?)?.toInt() ?? 0,
-      achievementCount: (json['achievementCount'] as num?)?.toInt() ?? 0,
-      achievements: (json['achievements'] as List?)?.cast<String>(),
+      location: json['location'] as String? ?? '',
+      county: json['county'] as String? ?? '',
+      memberCount: _safeInt(json['memberCount']),
+      followerCount: _safeInt(json['followerCount']),
+      followers: _safeStringList(json['followers']),
+      createdAt: _safeDateTime(json['createdAt']) ?? DateTime.now(),
+      lastActivityAt: _safeDateTime(json['lastActivityAt']) ?? DateTime.now(),
+      tags: _safeStringList(json['tags']),
+      adminUserId: json['adminUserId'] as String? ?? '',
     );
   }
 
-  /// Helper method to parse DateTime from various formats
-  static DateTime _parseDateTime(dynamic value) {
-    if (value == null) {
-      return DateTime.now();
-    }
-    
-    if (value is Timestamp) {
-      return value.toDate();
-    }
-    
-    if (value is String) {
-      try {
-        return DateTime.parse(value);
-      } catch (e) {
-        print('Failed to parse date string: $value, using current time');
-        return DateTime.now();
-      }
-    }
-    
-    if (value is int) {
-      return DateTime.fromMillisecondsSinceEpoch(value);
-    }
-    
-    return DateTime.now();
-  }
-
-  /// Creates a CommunityModel from a Firestore document
-  factory CommunityModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return CommunityModel.fromJson({
-      'id': doc.id,
-      ...data,
-    });
-  }
-
-  /// Convert to entity (since this extends Community, it can be used directly)
-  Community toEntity() => this;
-
-  /// Convert the CommunityModel to a map
+  /// Convert this model to a JSON map
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'description': description,
-      'location': location,
-      'leaderId': leaderId,
-      'level': level.toString().split('.').last,
-      'totalPlayers': totalPlayers,
-      'points': points,
-      'trophyCount': trophyCount,
-      'followCount': followCount,
-      'playerIds': playerIds,
-      'followerIds': followerIds,
-      'trophies': trophies
-          .map((t) => {
-                'id': t.id,
-                'name': t.name,
-                'type': t.type.toString().split('.').last,
-                'playerId': t.playerId,
-                'wonAt': t.wonAt.toIso8601String(),
-              })
-          .toList(),
-      'createdAt': createdAt.toIso8601String(),
+      'initials': initials,
       'logoUrl': logoUrl,
-      'lastActivityAt': lastActivityAt?.toIso8601String(),
-      'rankingTier': rankingTier,
+      'location': location,
+      'county': county,
       'memberCount': memberCount,
-      'communityPoints': communityPoints,
-      'achievementCount': achievementCount,
-      'achievements': achievements,
+      'followerCount': followerCount,
+      'followers': followers,
+      'createdAt': createdAt.toIso8601String(),
+      'lastActivityAt': lastActivityAt.toIso8601String(),
+      'tags': tags,
+      'adminUserId': adminUserId,
     };
   }
 
-  /// Create a copy of this model with some fields updated
-  CommunityModel copyWith({
-    String? id,
-    String? name,
-    String? description,
-    String? location,
-    String? leaderId,
-    CommunityLevel? level,
-    int? totalPlayers,
-    int? points,
-    int? trophyCount,
-    int? followCount,
-    List<String>? playerIds,
-    List<String>? followerIds,
-    List<Trophy>? trophies,
-    String? logoUrl,
-    DateTime? createdAt,
-    DateTime? lastActivityAt,
-    String? rankingTier,
-    int? memberCount,
-    int? communityPoints,
-    int? achievementCount,
-    List<String>? achievements,
-  }) {
+  /// Create a CommunityModel from a Community entity
+  factory CommunityModel.fromEntity(Community community) {
     return CommunityModel(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      location: location ?? this.location,
-      leaderId: leaderId ?? this.leaderId,
-      level: level ?? this.level,
-      totalPlayers: totalPlayers ?? this.totalPlayers,
-      points: points ?? this.points,
-      trophyCount: trophyCount ?? this.trophyCount,
-      followCount: followCount ?? this.followCount,
-      playerIds: playerIds ?? this.playerIds,
-      followerIds: followerIds ?? this.followerIds,
-      trophies: trophies ?? this.trophies,
-      logoUrl: logoUrl ?? this.logoUrl,
-      createdAt: createdAt ?? this.createdAt,
-      lastActivityAt: lastActivityAt ?? this.lastActivityAt,
-      rankingTier: rankingTier ?? this.rankingTier,
-      memberCount: memberCount ?? this.memberCount,
-      communityPoints: communityPoints ?? this.communityPoints,
-      achievementCount: achievementCount ?? this.achievementCount,
-      achievements: achievements ?? this.achievements,
+      id: community.id,
+      name: community.name,
+      description: community.description,
+      initials: community.initials,
+      logoUrl: community.logoUrl,
+      location: community.location,
+      county: community.county,
+      memberCount: community.memberCount,
+      followerCount: community.followerCount,
+      followers: community.followers,
+      createdAt: community.createdAt,
+      lastActivityAt: community.lastActivityAt,
+      tags: community.tags,
+      adminUserId: community.adminUserId,
     );
+  }
+
+  /// Convert this model to a Community entity
+  Community toEntity() {
+    return Community(
+      id: id,
+      name: name,
+      description: description,
+      initials: initials,
+      logoUrl: logoUrl,
+      location: location,
+      county: county,
+      memberCount: memberCount,
+      followerCount: followerCount,
+      followers: followers,
+      createdAt: createdAt,
+      lastActivityAt: lastActivityAt,
+      tags: tags,
+      adminUserId: adminUserId,
+    );
+  }
+
+  /// Helper method to safely parse integers
+  static int _safeInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  /// Helper method to safely parse doubles
+  static double? _safeDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  /// Helper method to safely parse string lists
+  static List<String> _safeStringList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return [];
+  }
+
+  /// Helper method to safely parse DateTime
+  static DateTime? _safeDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 }
-
-/// Model class for Trophy entity
-class TrophyModel extends Trophy {
-  const TrophyModel({
-    required String id,
-    required String name,
-    required TrophyType type,
-    required String playerId,
-    required DateTime wonAt,
-  }) : super(
-          id: id,
-          name: name,
-          type: type,
-          playerId: playerId,
-          wonAt: wonAt,
-        );
-
-  /// Create TrophyModel from JSON
-  factory TrophyModel.fromJson(Map<String, dynamic> json) {
-    return TrophyModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      type: TrophyType.values.firstWhere(
-        (e) => e.toString().split('.').last == json['type'],
-        orElse: () => TrophyType.regional,
-      ),
-      playerId: json['playerId'] as String,
-      wonAt: DateTime.parse(json['wonAt'] as String),
-    );
-  }
-
-  /// Convert TrophyModel to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'type': type.toString().split('.').last,
-      'playerId': playerId,
-      'wonAt': wonAt.toIso8601String(),
-    };
-  }
-} 

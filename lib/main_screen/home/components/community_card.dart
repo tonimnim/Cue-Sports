@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/theme.dart';
 
 class CommunityCard extends StatelessWidget {
   final String name;
@@ -20,8 +21,15 @@ class CommunityCard extends StatelessWidget {
         width: 170,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.cardColor,
           borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -32,10 +40,8 @@ class CommunityCard extends StatelessWidget {
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                    style: AppTheme.bodyLargeStyle.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -45,15 +51,14 @@ class CommunityCard extends StatelessWidget {
                     children: [
                       const Icon(
                         Icons.people,
-                        color: Colors.black54,
+                        color: Colors.white70,
                         size: 16,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '$playerCount players',
-                        style: const TextStyle(
-                          color: Colors.black54,
-                          fontSize: 14,
+                        style: AppTheme.bodySmallStyle.copyWith(
+                          color: Colors.white70,
                           fontStyle: FontStyle.italic,
                         ),
                       ),

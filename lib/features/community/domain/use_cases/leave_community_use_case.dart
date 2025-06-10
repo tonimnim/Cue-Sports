@@ -6,16 +6,16 @@ import '../../../../core/usecases/usecase.dart';
 import '../community_repository.dart';
 
 /// Use case for leaving a community
-class LeaveCommunityUseCase implements UseCase<bool, LeaveCommunityParams> {
+class LeaveCommunityUseCase implements UseCase<void, LeaveCommunityParams> {
   final CommunityRepository repository;
 
   LeaveCommunityUseCase(this.repository);
 
   @override
-  Future<Either<Failure, bool>> call(LeaveCommunityParams params) async {
+  Future<Either<Failure, void>> call(LeaveCommunityParams params) async {
     return await repository.leaveCommunity(
-      params.communityId,
-      params.userId,
+      userId: params.userId,
+      communityId: params.communityId,
     );
   }
 }

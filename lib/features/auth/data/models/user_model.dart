@@ -53,11 +53,14 @@ class UserModel extends User {
       userType: json['userType'] as String? ?? 'fan',
       communityId: json['communityId'] as String?,
       profileImageUrl: json['profileImageUrl'] as String?,
-      createdAt: _parseDateTime(json['createdAt']) ?? _parseDateTime(json['registeredAt']) ?? now,
+      createdAt: _parseDateTime(json['createdAt']) ??
+          _parseDateTime(json['registeredAt']) ??
+          now,
       registeredAt: _parseDateTime(json['registeredAt']) ?? now,
       playerSince: _parseDateTime(json['playerSince']),
       isPhoneVerified: json['isPhoneVerified'] as bool? ?? false,
-      playerPaymentStatus: _paymentStatusFromString(json['playerPaymentStatus']),
+      playerPaymentStatus:
+          _paymentStatusFromString(json['playerPaymentStatus']),
       paymentStatus: json['paymentStatus'] as bool?,
       playerPaymentId: json['playerPaymentId'] as String?,
       lastLoginAt: _parseDateTime(json['lastLoginAt']) ?? now,
@@ -68,7 +71,7 @@ class UserModel extends User {
   /// Helper method to safely parse DateTime from various formats
   static DateTime? _parseDateTime(dynamic dateValue) {
     if (dateValue == null) return null;
-    
+
     try {
       if (dateValue is Timestamp) {
         return dateValue.toDate();
@@ -77,11 +80,13 @@ class UserModel extends User {
       } else if (dateValue is DateTime) {
         return dateValue;
       } else {
-        print('DEBUG: Unexpected date type in UserModel: ${dateValue.runtimeType}');
+        print(
+            'DEBUG: Unexpected date type in UserModel: ${dateValue.runtimeType}');
         return null;
       }
     } catch (e) {
-      print('DEBUG: Failed to parse date value in UserModel: $dateValue, error: $e');
+      print(
+          'DEBUG: Failed to parse date value in UserModel: $dateValue, error: $e');
       return null;
     }
   }
@@ -244,4 +249,4 @@ class UserModel extends User {
       playerPaymentId: paymentId,
     );
   }
-} 
+}

@@ -8,7 +8,6 @@ class CommunityMemberModel extends CommunityMember {
     required String communityId,
     required String displayName,
     String? profileImageUrl,
-    required CommunityRole role,
     required DateTime joinedAt,
     DateTime? lastActiveAt,
     int points = 0,
@@ -21,7 +20,6 @@ class CommunityMemberModel extends CommunityMember {
           communityId: communityId,
           displayName: displayName,
           profileImageUrl: profileImageUrl,
-          role: role,
           joinedAt: joinedAt,
           lastActiveAt: lastActiveAt,
           points: points,
@@ -38,10 +36,6 @@ class CommunityMemberModel extends CommunityMember {
       communityId: json['communityId'] as String,
       displayName: json['displayName'] as String,
       profileImageUrl: json['profileImageUrl'] as String?,
-      role: CommunityRole.values.firstWhere(
-        (e) => e.toString().split('.').last == json['role'],
-        orElse: () => CommunityRole.member,
-      ),
       joinedAt: DateTime.parse(json['joinedAt'] as String),
       lastActiveAt: json['lastActiveAt'] != null
           ? DateTime.parse(json['lastActiveAt'] as String)
@@ -61,7 +55,6 @@ class CommunityMemberModel extends CommunityMember {
       communityId: entity.communityId,
       displayName: entity.displayName,
       profileImageUrl: entity.profileImageUrl,
-      role: entity.role,
       joinedAt: entity.joinedAt,
       lastActiveAt: entity.lastActiveAt,
       points: entity.points,
@@ -82,7 +75,6 @@ class CommunityMemberModel extends CommunityMember {
       'communityId': communityId,
       'displayName': displayName,
       'profileImageUrl': profileImageUrl,
-      'role': role.toString().split('.').last,
       'joinedAt': joinedAt.toIso8601String(),
       'lastActiveAt': lastActiveAt?.toIso8601String(),
       'points': points,
@@ -99,7 +91,6 @@ class CommunityMemberModel extends CommunityMember {
     String? communityId,
     String? displayName,
     String? profileImageUrl,
-    CommunityRole? role,
     DateTime? joinedAt,
     DateTime? lastActiveAt,
     int? points,
@@ -113,7 +104,6 @@ class CommunityMemberModel extends CommunityMember {
       communityId: communityId ?? this.communityId,
       displayName: displayName ?? this.displayName,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
-      role: role ?? this.role,
       joinedAt: joinedAt ?? this.joinedAt,
       lastActiveAt: lastActiveAt ?? this.lastActiveAt,
       points: points ?? this.points,
@@ -122,4 +112,4 @@ class CommunityMemberModel extends CommunityMember {
       badges: badges ?? this.badges,
     );
   }
-} 
+}

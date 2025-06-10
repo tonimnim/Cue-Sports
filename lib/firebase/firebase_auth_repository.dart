@@ -34,16 +34,18 @@ class FirebaseAuthRepository implements AuthRepository {
   static const Duration _tokenDuration = Duration(hours: 2);
 
   /// Stream to listen to auth state changes
-  Stream<firebase_auth.User?> get authStateChanges => _firebaseAuth.authStateChanges();
-  
+  Stream<firebase_auth.User?> get authStateChanges =>
+      _firebaseAuth.authStateChanges();
+
   /// Handle authentication exceptions
   Failure _handleAuthException(dynamic e) {
     _logger.e('🔥 Auth exception', e);
-    
+
     if (e is firebase_auth.FirebaseAuthException) {
       switch (e.code) {
         case 'user-not-found':
-          return const AuthFailure(message: 'No user found with this email or phone number');
+          return const AuthFailure(
+              message: 'No user found with this email or phone number');
         case 'wrong-password':
           return const AuthFailure(message: 'Incorrect password');
         case 'email-already-in-use':
@@ -53,22 +55,27 @@ class FirebaseAuthRepository implements AuthRepository {
         case 'weak-password':
           return const AuthFailure(message: 'Password is too weak');
         case 'operation-not-allowed':
-          return const AuthFailure(message: 'Operation not allowed. Please contact support');
+          return const AuthFailure(
+              message: 'Operation not allowed. Please contact support');
         case 'user-disabled':
           return const AuthFailure(message: 'This account has been disabled');
         case 'too-many-requests':
-          return const AuthFailure(message: 'Too many unsuccessful login attempts. Please try again later');
+          return const AuthFailure(
+              message:
+                  'Too many unsuccessful login attempts. Please try again later');
         case 'network-request-failed':
-          return const NetworkFailure(message: 'Network error. Please check your connection');
+          return const NetworkFailure(
+              message: 'Network error. Please check your connection');
         default:
           return AuthFailure(message: 'Authentication failed: ${e.message}');
       }
     }
-    
+
     if (e is TimeoutException) {
-      return const NetworkFailure(message: 'Connection timed out. Please try again');
+      return const NetworkFailure(
+          message: 'Connection timed out. Please try again');
     }
-    
+
     return AuthFailure(message: 'Authentication error: $e');
   }
 
@@ -85,9 +92,13 @@ class FirebaseAuthRepository implements AuthRepository {
         _tokenService = tokenService,
         _secureStorage = secureStorage ?? const FlutterSecureStorage(),
         _emailService = emailService,
-        _usersCollection = (firestore ?? FirebaseFirestore.instance).collection('users'),
-        _communitiesCollection = (firestore ?? FirebaseFirestore.instance).collection('communities'),
-        _pendingRegistrationsCollection = (firestore ?? FirebaseFirestore.instance).collection('pending_registrations');
+        _usersCollection =
+            (firestore ?? FirebaseFirestore.instance).collection('users'),
+        _communitiesCollection =
+            (firestore ?? FirebaseFirestore.instance).collection('communities'),
+        _pendingRegistrationsCollection =
+            (firestore ?? FirebaseFirestore.instance)
+                .collection('pending_registrations');
 
   @override
   Future<Either<Failure, entities.User>> login({
@@ -110,7 +121,8 @@ class FirebaseAuthRepository implements AuthRepository {
 
         if (querySnapshot.docs.isEmpty) {
           _logger.w('❌ No user found with phone: $phoneNumber');
-          return const Left(AuthFailure(message: 'No account found with this phone number'));
+          return const Left(
+              AuthFailure(message: 'No account found with this phone number'));
         }
 
         // Get the user document and extract the email
@@ -119,11 +131,14 @@ class FirebaseAuthRepository implements AuthRepository {
         final userEmail = userData['email'] as String?;
 
         if (userEmail == null || userEmail.isEmpty) {
-          _logger.e('⚠️ User found but email is missing for phone: $phoneNumber');
-          return const Left(AuthFailure(message: 'User email not found. Please contact support.'));
+          _logger
+              .e('⚠️ User found but email is missing for phone: $phoneNumber');
+          return const Left(AuthFailure(
+              message: 'User email not found. Please contact support.'));
         }
 
-        _logger.i('🔄 Found associated email for phone: $phoneNumber, using it for auth');
+        _logger.i(
+            '🔄 Found associated email for phone: $phoneNumber, using it for auth');
 
         try {
           // Sign in with email and password using Firebase Auth
@@ -137,7 +152,8 @@ class FirebaseAuthRepository implements AuthRepository {
           final DateTime expiryTime = DateTime.now().add(_tokenDuration);
           await _cacheAuthToken(token, expiryTime);
 
-          _logger.i('✅ User logged in successfully: ${userCredential.user?.uid}');
+          _logger
+              .i('✅ User logged in successfully: ${userCredential.user?.uid}');
 
           // Return user entity
           final userId = userDoc.id;
@@ -146,7 +162,7 @@ class FirebaseAuthRepository implements AuthRepository {
         } on firebase_auth.FirebaseAuthException catch (e) {
           return Left(_handleAuthException(e));
         }
-      } 
+      }
       // Email login
       else if (email != null && email.isNotEmpty) {
         _logger.i('👤 Attempting login with email: $email');
@@ -170,7 +186,8 @@ class FirebaseAuthRepository implements AuthRepository {
           final DateTime expiryTime = DateTime.now().add(_tokenDuration);
           await _cacheAuthToken(token, expiryTime);
 
-          _logger.i('✅ User logged in successfully: ${userCredential.user?.uid}');
+          _logger
+              .i('✅ User logged in successfully: ${userCredential.user?.uid}');
 
           // Return user entity
           final userData = userDoc.data() as Map<String, dynamic>;
@@ -180,9 +197,9 @@ class FirebaseAuthRepository implements AuthRepository {
         } on firebase_auth.FirebaseAuthException catch (e) {
           return Left(_handleAuthException(e));
         }
-      } 
-      else {
-        return const Left(AuthFailure(message: 'Either email or phone number must be provided'));
+      } else {
+        return const Left(AuthFailure(
+            message: 'Either email or phone number must be provided'));
       }
     } catch (e) {
       _logger.e('🔥 Unexpected error during login', e);
@@ -252,16 +269,18 @@ class FirebaseAuthRepository implements AuthRepository {
 
       switch (e.code) {
         case 'user-not-found':
-          return const Left(AuthFailure(message: 'No user found with this email'));
+          return const Left(
+              AuthFailure(message: 'No user found with this email'));
         case 'invalid-email':
           return const Left(AuthFailure(message: 'Invalid email format'));
         default:
-          return Left(
-              AuthFailure(message: 'Failed to send password reset: ${e.message}'));
+          return Left(AuthFailure(
+              message: 'Failed to send password reset: ${e.message}'));
       }
     } catch (e) {
       _logger.e('🔥 Error sending password reset', e);
-      return const Left(AuthFailure(message: 'Failed to send password reset email'));
+      return const Left(
+          AuthFailure(message: 'Failed to send password reset email'));
     }
   }
 
@@ -297,7 +316,8 @@ class FirebaseAuthRepository implements AuthRepository {
         'communityId': null,
         'registeredAt': now,
         'playerSince': null,
-        'isEmailVerified': true, // Email was verified before this step in our flow
+        'isEmailVerified':
+            true, // Email was verified before this step in our flow
         'playerPaymentStatus': null,
         'playerPaymentId': null,
         'profileImageUrl': null,
@@ -318,30 +338,31 @@ class FirebaseAuthRepository implements AuthRepository {
 
       _logger.i('🎉 Fan registered successfully: $fullName');
       return Right(_mapFirebaseUserToEntity(uid, userData));
-
     } on firebase_auth.FirebaseAuthException catch (e) {
       _logger.i('🔄 Firebase Auth conflict detected: ${e.code} for $email');
 
       if (e.code == 'email-already-in-use') {
         // PRODUCTION: Handle gracefully without user-facing errors
         _logger.i('🔧 Attempting seamless account recovery for: $email');
-        
+
         try {
           // Try to sign in with the existing account
-          final signInCredential = await _firebaseAuth.signInWithEmailAndPassword(
+          final signInCredential =
+              await _firebaseAuth.signInWithEmailAndPassword(
             email: email,
             password: password,
           );
-          
+
           final uid = signInCredential.user!.uid;
-          _logger.i('✅ Successfully accessed existing Firebase Auth account: $uid');
-          
+          _logger.i(
+              '✅ Successfully accessed existing Firebase Auth account: $uid');
+
           // Check if Firestore document exists and create/update as needed
           final existingUserDoc = await _usersCollection.doc(uid).get();
-          
+
           if (!existingUserDoc.exists) {
             _logger.i('🔧 Creating missing Firestore document');
-            
+
             // Create the missing Firestore document
             final now = FieldValue.serverTimestamp();
             await _usersCollection.doc(uid).set({
@@ -359,35 +380,34 @@ class FirebaseAuthRepository implements AuthRepository {
               'lastLoginAt': now,
               'isActive': true,
             });
-            
+
             _logger.i('✅ Firestore document created for existing account');
           } else {
             _logger.i('✅ Firestore document exists, updating login time');
-            
+
             // Update login time
             await _usersCollection.doc(uid).update({
               'lastLoginAt': FieldValue.serverTimestamp(),
             });
           }
-          
+
           // Generate token
           final token = await _generateCustomToken();
           final expiryTime = DateTime.now().add(_tokenDuration);
           await _cacheAuthToken(token, expiryTime);
-          
+
           // Get the user data
           final userDoc = await _usersCollection.doc(uid).get();
           final userData = userDoc.data() as Map<String, dynamic>;
-          
+
           _logger.i('🎉 Fan account accessed successfully: $fullName');
           // PRODUCTION: No error message - seamless recovery
           return Right(_mapFirebaseUserToEntity(uid, userData));
-          
         } catch (signInError) {
           _logger.e('🔥 Account recovery failed: $signInError');
           return const Left(AuthFailure(
-            message: 'This email is already registered with a different password. Please try logging in instead.'
-          ));
+              message:
+                  'This email is already registered with a different password. Please try logging in instead.'));
         }
       }
 
@@ -398,12 +418,13 @@ class FirebaseAuthRepository implements AuthRepository {
         case 'weak-password':
           return const Left(AuthFailure(message: 'Password is too weak'));
         default:
-          return Left(AuthFailure(message: 'Registration failed: ${e.message}'));
+          return Left(
+              AuthFailure(message: 'Registration failed: ${e.message}'));
       }
     } catch (e) {
       _logger.e('🔥 Unexpected error during fan registration', e);
-      return const Left(
-          AuthFailure(message: 'An unexpected error occurred during registration'));
+      return const Left(AuthFailure(
+          message: 'An unexpected error occurred during registration'));
     }
   }
 
@@ -421,7 +442,7 @@ class FirebaseAuthRepository implements AuthRepository {
 
       // PRODUCTION OPTIMIZATION: Skip preliminary checks - let Firebase be authoritative
       // This eliminates race conditions and false positives from fetchSignInMethodsForEmail
-      
+
       // Create user in Firebase Auth - this is the authoritative check
       final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
@@ -441,8 +462,10 @@ class FirebaseAuthRepository implements AuthRepository {
         'communityId': communityId,
         'registeredAt': now,
         'playerSince': now, // Player since registration
-        'isEmailVerified': true, // Email was verified before this step in our flow
-        'playerPaymentStatus': 'pending', // Initially pending until payment is verified
+        'isEmailVerified':
+            true, // Email was verified before this step in our flow
+        'playerPaymentStatus':
+            'pending', // Initially pending until payment is verified
         'playerPaymentId': paymentId,
         'profileImageUrl': null,
         'lastLoginAt': now,
@@ -462,30 +485,31 @@ class FirebaseAuthRepository implements AuthRepository {
 
       _logger.i('🎉 Player registered successfully: $fullName');
       return Right(_mapFirebaseUserToEntity(uid, userData));
-
     } on firebase_auth.FirebaseAuthException catch (e) {
       _logger.i('🔄 Firebase Auth conflict detected: ${e.code} for $email');
 
       if (e.code == 'email-already-in-use') {
         // PRODUCTION: Handle gracefully without user-facing errors
         _logger.i('🔧 Attempting seamless account recovery for: $email');
-        
+
         try {
           // Try to sign in with the existing account
-          final signInCredential = await _firebaseAuth.signInWithEmailAndPassword(
+          final signInCredential =
+              await _firebaseAuth.signInWithEmailAndPassword(
             email: email,
             password: password,
           );
-          
+
           final uid = signInCredential.user!.uid;
-          _logger.i('✅ Successfully accessed existing Firebase Auth account: $uid');
-          
+          _logger.i(
+              '✅ Successfully accessed existing Firebase Auth account: $uid');
+
           // Check if Firestore document exists and create/update as needed
           final existingUserDoc = await _usersCollection.doc(uid).get();
-          
+
           if (!existingUserDoc.exists) {
             _logger.i('🔧 Creating missing Firestore document');
-            
+
             // Create the missing Firestore document
             final now = FieldValue.serverTimestamp();
             await _usersCollection.doc(uid).set({
@@ -503,11 +527,11 @@ class FirebaseAuthRepository implements AuthRepository {
               'lastLoginAt': now,
               'isActive': true,
             });
-            
+
             _logger.i('✅ Firestore document created for existing account');
           } else {
             _logger.i('✅ Firestore document exists, updating payment info');
-            
+
             // Update with new payment info
             await _usersCollection.doc(uid).update({
               'playerPaymentId': paymentId,
@@ -515,25 +539,24 @@ class FirebaseAuthRepository implements AuthRepository {
               'lastLoginAt': FieldValue.serverTimestamp(),
             });
           }
-          
+
           // Generate token
           final token = await _generateCustomToken();
           final expiryTime = DateTime.now().add(_tokenDuration);
           await _cacheAuthToken(token, expiryTime);
-          
+
           // Get the user data
           final userDoc = await _usersCollection.doc(uid).get();
           final userData = userDoc.data() as Map<String, dynamic>;
-          
+
           _logger.i('🎉 Player account accessed successfully: $fullName');
           // PRODUCTION: No error message - seamless recovery
           return Right(_mapFirebaseUserToEntity(uid, userData));
-          
         } catch (signInError) {
           _logger.e('🔥 Account recovery failed: $signInError');
           return const Left(AuthFailure(
-            message: 'This email is already registered with a different password. Please try logging in instead.'
-          ));
+              message:
+                  'This email is already registered with a different password. Please try logging in instead.'));
         }
       }
 
@@ -544,12 +567,13 @@ class FirebaseAuthRepository implements AuthRepository {
         case 'weak-password':
           return const Left(AuthFailure(message: 'Password is too weak'));
         default:
-          return Left(AuthFailure(message: 'Registration failed: ${e.message}'));
+          return Left(
+              AuthFailure(message: 'Registration failed: ${e.message}'));
       }
     } catch (e) {
       _logger.e('🔥 Unexpected error during player registration', e);
-      return const Left(
-          AuthFailure(message: 'An unexpected error occurred during registration'));
+      return const Left(AuthFailure(
+          message: 'An unexpected error occurred during registration'));
     }
   }
 
@@ -628,7 +652,8 @@ class FirebaseAuthRepository implements AuthRepository {
         // Send another verification email if needed
         await firebaseUser.sendEmailVerification();
         return const Left(AuthFailure(
-            message: 'Email not verified. A new verification email has been sent.'));
+            message:
+                'Email not verified. A new verification email has been sent.'));
       }
     } catch (e) {
       _logger.e('🔥 Error during email verification', e);
@@ -648,7 +673,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return const Right(null);
     } catch (e) {
       _logger.e('🔥 Error verifying password reset code', e);
-      return const Left(AuthFailure(message: 'Invalid or expired password reset code'));
+      return const Left(
+          AuthFailure(message: 'Invalid or expired password reset code'));
     }
   }
 
@@ -712,23 +738,23 @@ class FirebaseAuthRepository implements AuthRepository {
         return entities.Community(
           id: doc.id,
           name: data?['name']?.toString() ?? 'Unknown Community',
-          description: data?['description']?.toString() ?? 'No description available',
+          description:
+              data?['description']?.toString() ?? 'No description available',
+          initials: data?['initials']?.toString() ?? 'UC',
+          logoUrl: data?['logoUrl']?.toString(),
           location: data?['location']?.toString() ?? 'Unknown location',
-          leaderId: data?['leaderId']?.toString() ?? '',
-          level: entities.CommunityLevel.local, // Default level
-          totalPlayers: data?['totalPlayers'] as int? ?? 0,
-          points: data?['points'] as int? ?? 0,
-          trophyCount: data?['trophyCount'] as int? ?? 0,
-          followCount: data?['followCount'] as int? ?? 0,
-          playerIds: (data?['playerIds'] as List?)?.cast<String>() ?? const [],
-          followerIds: (data?['followerIds'] as List?)?.cast<String>() ?? const [],
-          trophies: const [], // Default empty list
+          county: data?['county']?.toString() ?? 'Unknown county',
           memberCount: data?['memberCount'] as int? ?? 0,
-          communityPoints: data?['communityPoints'] as int? ?? 0,
-          achievements: const [], // Default empty list
+          followerCount: data?['followerCount'] as int? ?? 0,
           createdAt: data?['createdAt'] != null
               ? (data?['createdAt'] as Timestamp).toDate()
               : DateTime.now(),
+          lastActivityAt: data?['lastActivityAt'] != null
+              ? (data?['lastActivityAt'] as Timestamp).toDate()
+              : DateTime.now(),
+          tags: (data?['tags'] as List?)?.cast<String>() ?? const [],
+          adminUserId: data?['adminUserId']?.toString() ?? '',
+          followers: (data?['followers'] as List?)?.cast<String>() ?? const [],
         );
       }).toList();
 
@@ -748,16 +774,16 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<bool> _isEmailRegistered(String email) async {
     try {
       _logger.i('🔍 Checking if email is registered: $email');
-      
+
       // Use fetchSignInMethodsForEmail but with better error handling
       final methods = await _firebaseAuth.fetchSignInMethodsForEmail(email);
       _logger.i('📧 Sign-in methods for $email: $methods');
-      
+
       final isRegistered = methods.isNotEmpty;
-      _logger.i(isRegistered 
-          ? '✅ Email is registered: $email' 
+      _logger.i(isRegistered
+          ? '✅ Email is registered: $email'
           : '❌ Email is not registered: $email');
-          
+
       return isRegistered;
     } catch (e) {
       _logger.e('🔥 Error checking if email is registered: $e');
@@ -864,7 +890,7 @@ class FirebaseAuthRepository implements AuthRepository {
   /// Helper method to safely parse DateTime from various formats
   DateTime? _parseDateTime(dynamic dateValue) {
     if (dateValue == null) return null;
-    
+
     try {
       if (dateValue is Timestamp) {
         return dateValue.toDate();
@@ -873,7 +899,8 @@ class FirebaseAuthRepository implements AuthRepository {
       } else if (dateValue is DateTime) {
         return dateValue;
       } else {
-        _logger.w('Unexpected date type: ${dateValue.runtimeType} for value: $dateValue');
+        _logger.w(
+            'Unexpected date type: ${dateValue.runtimeType} for value: $dateValue');
         return null;
       }
     } catch (e) {
@@ -898,11 +925,9 @@ class FirebaseAuthRepository implements AuthRepository {
 
   /// Helper method to get user by email
   Future<DocumentSnapshot?> _getUserByEmail(String email) async {
-    final querySnapshot = await _usersCollection
-        .where('email', isEqualTo: email)
-        .limit(1)
-        .get();
-    
+    final querySnapshot =
+        await _usersCollection.where('email', isEqualTo: email).limit(1).get();
+
     return querySnapshot.docs.isEmpty ? null : querySnapshot.docs.first;
   }
 
@@ -955,7 +980,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return Right(_mapFirebaseUserToEntity(userId, userData));
     } catch (e) {
       _logger.e('🔥 Error getting user by phone', e);
-      return const Left(AuthFailure(message: 'Failed to get user by phone number'));
+      return const Left(
+          AuthFailure(message: 'Failed to get user by phone number'));
     }
   }
 
@@ -978,7 +1004,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return Right(token);
     } catch (e) {
       _logger.e('🔥 Error getting auth token', e);
-      return const Left(AuthFailure(message: 'Failed to get authentication token'));
+      return const Left(
+          AuthFailure(message: 'Failed to get authentication token'));
     }
   }
 
@@ -1032,7 +1059,8 @@ class FirebaseAuthRepository implements AuthRepository {
         final methods = await _firebaseAuth.fetchSignInMethodsForEmail(email);
         if (methods.isNotEmpty) {
           _logger.w('❌ Email already exists: $email');
-          return const Left(AuthFailure(message: 'This email is already registered'));
+          return const Left(
+              AuthFailure(message: 'This email is already registered'));
         }
       } catch (e) {
         if (!e.toString().contains('user-not-found')) {
@@ -1071,7 +1099,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return const Right(true);
     } catch (e) {
       _logger.e('🔥 Error creating pending registration', e);
-      return Left(AuthFailure(message: 'Failed to create pending registration: $e'));
+      return Left(
+          AuthFailure(message: 'Failed to create pending registration: $e'));
     }
   }
 
@@ -1088,8 +1117,8 @@ class FirebaseAuthRepository implements AuthRepository {
       final pendingDoc = await _pendingRegistrationsCollection.doc(email).get();
       if (!pendingDoc.exists) {
         _logger.w('❌ No pending registration found for: $email');
-        return const Left(
-            AuthFailure(message: 'Verification failed: No pending registration found'));
+        return const Left(AuthFailure(
+            message: 'Verification failed: No pending registration found'));
       }
 
       final pendingData = pendingDoc.data() as Map<String, dynamic>;
@@ -1097,26 +1126,24 @@ class FirebaseAuthRepository implements AuthRepository {
       // Check if verification code matches
       if (pendingData['verificationCode'] != verificationCode) {
         _logger.w('❌ Invalid verification code for: $email');
-        return const Left(
-            AuthFailure(message: 'Verification failed: Invalid verification code'));
+        return const Left(AuthFailure(
+            message: 'Verification failed: Invalid verification code'));
       }
 
       // Check if verification has expired
       final expiryDate = DateTime.parse(pendingData['expires']);
       if (DateTime.now().isAfter(expiryDate)) {
         _logger.w('❌ Verification expired for: $email');
-        return const Left(
-            AuthFailure(message: 'Verification failed: Verification link has expired'));
+        return const Left(AuthFailure(
+            message: 'Verification failed: Verification link has expired'));
       }
 
       // FIXED: Mark email as verified, but keep verified=false until payment is completed
-      await _pendingRegistrationsCollection
-          .doc(email)
-          .update({
-            'emailVerified': true,
-            'emailVerifiedAt': DateTime.now().toIso8601String(),
-            // 'verified' stays false until payment is completed
-          });
+      await _pendingRegistrationsCollection.doc(email).update({
+        'emailVerified': true,
+        'emailVerifiedAt': DateTime.now().toIso8601String(),
+        // 'verified' stays false until payment is completed
+      });
 
       _logger.i('✅ Verification successful for: $email');
       return const Right(true);
@@ -1144,7 +1171,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return Right(pendingDoc.data() as Map<String, dynamic>);
     } catch (e) {
       _logger.e('🔥 Error getting pending registration', e);
-      return Left(AuthFailure(message: 'Failed to get pending registration: $e'));
+      return Left(
+          AuthFailure(message: 'Failed to get pending registration: $e'));
     }
   }
 
@@ -1162,7 +1190,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return const Right(true);
     } catch (e) {
       _logger.e('🔥 Error deleting pending registration', e);
-      return Left(AuthFailure(message: 'Failed to delete pending registration: $e'));
+      return Left(
+          AuthFailure(message: 'Failed to delete pending registration: $e'));
     }
   }
 
@@ -1197,7 +1226,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return const Right(null);
     } catch (e) {
       _logger.e('🔥 Error sending verification email', e);
-      return const Left(AuthFailure(message: 'Failed to send verification email'));
+      return const Left(
+          AuthFailure(message: 'Failed to send verification email'));
     }
   }
 
@@ -1207,7 +1237,8 @@ class FirebaseAuthRepository implements AuthRepository {
     required String status,
   }) async {
     try {
-      _logger.i('🔄 Updating payment status for payment ID: $paymentId to $status');
+      _logger.i(
+          '🔄 Updating payment status for payment ID: $paymentId to $status');
 
       // Find user with this payment ID
       final querySnapshot = await _usersCollection
@@ -1217,7 +1248,8 @@ class FirebaseAuthRepository implements AuthRepository {
 
       if (querySnapshot.docs.isEmpty) {
         _logger.w('❌ No user found with payment ID: $paymentId');
-        return const Left(AuthFailure(message: 'No user found with this payment ID'));
+        return const Left(
+            AuthFailure(message: 'No user found with this payment ID'));
       }
 
       final userDoc = querySnapshot.docs.first;
@@ -1232,7 +1264,7 @@ class FirebaseAuthRepository implements AuthRepository {
       // If payment is completed, also verify email and update community count
       if (status == 'completed') {
         updates['isEmailVerified'] = true;
-        
+
         // Update community member count
         final communityId = userData['communityId'] as String?;
         if (communityId != null) {
@@ -1248,7 +1280,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return const Right(null);
     } catch (e) {
       _logger.e('🔥 Error updating payment status', e);
-      return const Left(AuthFailure(message: 'Failed to update payment status'));
+      return const Left(
+          AuthFailure(message: 'Failed to update payment status'));
     }
   }
 
@@ -1259,7 +1292,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return Right(exists);
     } catch (e) {
       _logger.e('🔥 Error checking email existence', e);
-      return const Left(AuthFailure(message: 'Failed to check email existence'));
+      return const Left(
+          AuthFailure(message: 'Failed to check email existence'));
     }
   }
 
@@ -1270,7 +1304,8 @@ class FirebaseAuthRepository implements AuthRepository {
       return Right(exists);
     } catch (e) {
       _logger.e('🔥 Error checking phone existence', e);
-      return const Left(AuthFailure(message: 'Failed to check phone existence'));
+      return const Left(
+          AuthFailure(message: 'Failed to check phone existence'));
     }
   }
 
@@ -1282,13 +1317,14 @@ class FirebaseAuthRepository implements AuthRepository {
       if (userDoc == null) {
         return const Right(false);
       }
-      
+
       final userData = userDoc.data() as Map<String, dynamic>;
       final isVerified = userData['isEmailVerified'] as bool? ?? false;
       return Right(isVerified);
     } catch (e) {
       _logger.e('🔥 Error checking email verification', e);
-      return const Left(AuthFailure(message: 'Failed to check email verification'));
+      return const Left(
+          AuthFailure(message: 'Failed to check email verification'));
     }
   }
 

@@ -1,21 +1,19 @@
 import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/community.dart';
-import '../../domain/entities/community_event.dart';
-import '../../domain/entities/community_post.dart';
 import '../../domain/entities/community_member.dart';
 
 /// Status of community operations
 enum CommunityStatus {
   /// Initial state
   initial,
-  
+
   /// Loading data
   loading,
-  
+
   /// Data loaded successfully
   loaded,
-  
+
   /// Error occurred
   error,
 }
@@ -28,8 +26,6 @@ class CommunityState extends Equatable {
   final Community? userCommunity;
   final List<Community>? filteredCommunities;
   final List<Community>? topCommunities;
-  final List<CommunityEvent>? events;
-  final List<CommunityPost>? posts;
   final List<CommunityMember>? members;
   final String? errorMessage;
   final String? searchQuery;
@@ -43,8 +39,6 @@ class CommunityState extends Equatable {
     this.userCommunity,
     this.filteredCommunities,
     this.topCommunities,
-    this.events,
-    this.posts,
     this.members,
     this.errorMessage,
     this.searchQuery,
@@ -65,8 +59,6 @@ class CommunityState extends Equatable {
     Community? userCommunity,
     List<Community>? filteredCommunities,
     List<Community>? topCommunities,
-    List<CommunityEvent>? events,
-    List<CommunityPost>? posts,
     List<CommunityMember>? members,
     String? errorMessage,
     String? searchQuery,
@@ -80,8 +72,6 @@ class CommunityState extends Equatable {
       userCommunity: userCommunity ?? this.userCommunity,
       filteredCommunities: filteredCommunities ?? this.filteredCommunities,
       topCommunities: topCommunities ?? this.topCommunities,
-      events: events ?? this.events,
-      posts: posts ?? this.posts,
       members: members ?? this.members,
       errorMessage: errorMessage ?? this.errorMessage,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -114,8 +104,6 @@ class CommunityState extends Equatable {
         userCommunity,
         filteredCommunities,
         topCommunities,
-        events,
-        posts,
         members,
         errorMessage,
         searchQuery,
@@ -140,13 +128,9 @@ class CommunityError extends CommunityState {
 class CommunityLoaded extends CommunityState {
   const CommunityLoaded({
     required List<Community> communities,
-    required List<CommunityEvent> events,
-    required List<CommunityPost> posts,
   }) : super(
           status: CommunityStatus.loaded,
           communities: communities,
-          events: events,
-          posts: posts,
         );
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/theme.dart';
 
 class TournamentCard extends StatelessWidget {
   final String title;
@@ -27,8 +28,15 @@ class TournamentCard extends StatelessWidget {
       child: Container(
         width: 220,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.cardColor,
           borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -36,9 +44,9 @@ class TournamentCard extends StatelessWidget {
             // Header with live indicator
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                color: AppTheme.cardColor,
+                borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
                 ),
@@ -55,12 +63,11 @@ class TournamentCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text(
+                    Text(
                       'LIVE',
-                      style: TextStyle(
+                      style: AppTheme.overlineStyle.copyWith(
                         color: Colors.red,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -72,10 +79,8 @@ class TournamentCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
               child: Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
+                style: AppTheme.bodyLargeStyle.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -86,13 +91,12 @@ class TournamentCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
               child: Text(
                 'Round $round',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 11,
+                style: AppTheme.captionStyle.copyWith(
+                  color: Colors.white70,
                 ),
               ),
             ),
-            const Divider(height: 8),
+            const Divider(height: 8, color: Colors.white24),
             // Tournament details
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -113,16 +117,15 @@ class TournamentCard extends StatelessWidget {
                 width: double.infinity,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F4A22),
+                  color: AppTheme.accentColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
                     'VIEW TOURNAMENT',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                    style: AppTheme.captionStyle.copyWith(
+                      color: AppTheme.textDark,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -135,30 +138,24 @@ class TournamentCard extends StatelessWidget {
   }
 
   Widget _buildDetailColumn(String label, String value) {
-    return Flexible(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 9,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTheme.overlineStyle.copyWith(
+            color: Colors.white70,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(height: 1),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: AppTheme.captionStyle.copyWith(
+            fontWeight: FontWeight.w500,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

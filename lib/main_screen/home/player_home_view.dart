@@ -3,6 +3,7 @@ import 'package:pool_billiard_app/main_screen/home/components/community_card.dar
 import 'package:pool_billiard_app/main_screen/home/components/tournament_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/top_shooters_list.dart';
 import 'package:pool_billiard_app/main_screen/home/components/quick_action_component.dart';
+import 'package:pool_billiard_app/core/config/theme.dart';
 
 class PlayerHomeView extends StatelessWidget {
   final String userName;
@@ -60,17 +61,18 @@ class PlayerHomeView extends StatelessWidget {
             },
           ),
           const SizedBox(height: 24),
-          // Top communities section
-          _buildSectionHeader('Top communities',
-              onSeeAllTap: onCommunitiesSeeAllTap),
+          // Recent Matches section (replacing Top Communities)
+          _buildSectionHeader('Recent Matches', onSeeAllTap: () {
+            // TODO: Navigate to matches history
+          }),
           const SizedBox(height: 16),
-          _buildCommunitiesCarousel(context),
+          _buildRecentMatchesCarousel(context),
           const SizedBox(height: 24),
-          // Top shooters section
-          TopShootersList(
-            shooters: const [], // Empty list for placeholder display
-            onSeeAllTap: onShootersSeeAllTap,
-          ),
+          // Top shooters section (now horizontal)
+          _buildSectionHeader('Top Shooters This Week',
+              onSeeAllTap: onShootersSeeAllTap),
+          const SizedBox(height: 16),
+          _buildTopShootersHorizontal(context),
           const SizedBox(
               height: 100), // Extra bottom padding for navigation bar
         ],
@@ -110,20 +112,14 @@ class PlayerHomeView extends StatelessWidget {
               children: [
                 Text(
                   userName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: AppTheme.h3Style, // 18px Medium Raleway
                 ),
                 if (communityName != null) ...[
                   Text(
                     communityName!,
-                    style: TextStyle(
-                      color: Colors.white
-                          .withValues(alpha: 204), // 0.8 * 255 ≈ 204
-                      fontSize: 14,
-                    ),
+                    style: AppTheme.bodySmallStyle.copyWith(
+                      color: Colors.white.withOpacity(0.8),
+                    ), // 14px Regular Raleway
                   ),
                 ],
               ],
@@ -170,7 +166,7 @@ class PlayerHomeView extends StatelessWidget {
             bottomLeft: Radius.circular(16),
             bottomRight: Radius.circular(16),
           ),
-          color: const Color(0xFF1B5E20), // Dark green background
+          color: AppTheme.cardColor, // Using proper card color
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -185,20 +181,19 @@ class PlayerHomeView extends StatelessWidget {
                   children: [
                     Text(
                       '#${nationalRank > 0 ? nationalRank : 3}', // Show actual rank or default to 3
-                      style: const TextStyle(
-                        color: Color(0xFFFFD700), // Gold color
+                      style: TextStyle(
+                        color: AppTheme.accentColor, // Gold color
                         fontSize: 36,
                         fontWeight: FontWeight.bold,
                         height: 1.0,
                       ),
                     ),
-                    const Text(
+                    Text(
                       'National Rank',
-                      style: TextStyle(
-                        color: Color(0xFF81C784), // Light green
-                        fontSize: 13,
+                      style: AppTheme.captionStyle.copyWith(
+                        color: const Color(0xFF81C784), // Light green
                         fontWeight: FontWeight.w500,
-                      ),
+                      ), // 12px Medium Raleway
                     ),
                   ],
                 ),
@@ -266,20 +261,18 @@ class PlayerHomeView extends StatelessWidget {
                     ),
                     Text(
                       '${communityRank > 0 ? communityRank : 8}/10',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: AppTheme.h3Style.copyWith(
                         fontSize: 24, // Reduced from 32 to 24
                         fontWeight: FontWeight.bold,
                         height: 1.0,
-                      ),
+                      ), // 18px Bold Raleway
                     ),
-                    const Text(
+                    Text(
                       'Community Board',
-                      style: TextStyle(
-                        color: Color(0xFF81C784), // Light green
-                        fontSize: 11, // Reduced from 13 to 11
+                      style: AppTheme.overlineStyle.copyWith(
+                        color: const Color(0xFF81C784), // Light green
                         fontWeight: FontWeight.w500,
-                      ),
+                      ), // 10px Medium Raleway
                     ),
                   ],
                 ),
@@ -298,20 +291,15 @@ class PlayerHomeView extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTheme.h3Style, // 18px Medium Raleway
         ),
         GestureDetector(
           onTap: onSeeAllTap,
-          child: const Text(
+          child: Text(
             'see all',
-            style: TextStyle(
+            style: AppTheme.bodySmallStyle.copyWith(
               color: Colors.white70,
-              fontSize: 14,
-            ),
+            ), // 14px Regular Raleway
           ),
         ),
       ],
@@ -379,47 +367,231 @@ class PlayerHomeView extends StatelessWidget {
     );
   }
 
-  Widget _buildCommunitiesCarousel(BuildContext context) {
-    // Sample community data
-    final List<Map<String, dynamic>> communities = [
+  Widget _buildRecentMatchesCarousel(BuildContext context) {
+    // Sample recent matches data
+    final List<Map<String, dynamic>> recentMatches = [
       {
-        'name': 'Nairobi East',
-        'playerCount': 156,
+        'opponent': 'James Mwangi',
+        'timeAgo': '2 hours ago',
+        'result': 'Win',
+        'score': '8-6',
+        'points': '+250',
+        'isWin': true,
       },
       {
-        'name': 'Nairobi East',
-        'playerCount': 156,
+        'opponent': 'Mark Kariuki',
+        'timeAgo': '2 hours ago',
+        'result': 'Win',
+        'score': '8-4',
+        'points': '+180',
+        'isWin': true,
       },
       {
-        'name': 'Nairobi East',
-        'playerCount': 156,
+        'opponent': 'Anthony Chege',
+        'timeAgo': '2 hours ago',
+        'result': 'Loss',
+        'score': '5-8',
+        'points': '-120',
+        'isWin': false,
       },
     ];
 
     return SizedBox(
-      height: 80,
+      height: 100,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: communities.length,
+        itemCount: recentMatches.length,
         itemBuilder: (context, index) {
-          final community = communities[index];
+          final match = recentMatches[index];
           return Padding(
             padding: EdgeInsets.only(
-                right: index < communities.length - 1 ? 16.0 : 0),
-            child: CommunityCard(
-              name: community['name'],
-              playerCount: community['playerCount'],
-              onTap: () {
-                // Navigate to community details
-                Navigator.pushNamed(
-                  context,
-                  '/community-details',
-                  arguments: {'communityId': index.toString()},
-                );
-              },
-            ),
+                right: index < recentMatches.length - 1 ? 16.0 : 0),
+            child: _buildRecentMatchCard(match),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildRecentMatchCard(Map<String, dynamic> match) {
+    final isWin = match['isWin'] as bool;
+
+    return Container(
+      width: 200,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor, // Using proper card color
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Match result and time
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isWin ? Icons.check_circle : Icons.cancel,
+                    color: isWin ? AppTheme.successColor : AppTheme.errorColor,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    match['result'],
+                    style: AppTheme.captionStyle.copyWith(
+                      color:
+                          isWin ? AppTheme.successColor : AppTheme.errorColor,
+                      fontWeight: FontWeight.w600,
+                    ), // 12px SemiBold Raleway
+                  ),
+                ],
+              ),
+              Text(
+                match['timeAgo'],
+                style: AppTheme.overlineStyle.copyWith(
+                  color: Colors.white70,
+                ), // 10px Regular Raleway
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Opponent and score
+          Text(
+            'Vs ${match['opponent']}',
+            style: AppTheme.bodySmallStyle.copyWith(
+              fontWeight: FontWeight.w600,
+            ), // 14px SemiBold Raleway
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          // Score and points
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                match['score'],
+                style: AppTheme.bodyLargeStyle.copyWith(
+                  fontWeight: FontWeight.w600,
+                ), // 16px SemiBold Raleway
+              ),
+              Text(
+                match['points'],
+                style: AppTheme.captionStyle.copyWith(
+                  color: isWin ? AppTheme.successColor : AppTheme.errorColor,
+                  fontWeight: FontWeight.w600,
+                ), // 12px SemiBold Raleway
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopShootersHorizontal(BuildContext context) {
+    // Sample top shooters data
+    final List<Map<String, dynamic>> topShooters = [
+      {
+        'name': 'Alex Maina',
+        'rank': '#1 Regional',
+        'image': 'assets/images/logo.png',
+      },
+      {
+        'name': 'Alex Maina',
+        'rank': '#1 Regional',
+        'image': 'assets/images/logo.png',
+      },
+      {
+        'name': 'Alex Maina',
+        'rank': '#1 Regional',
+        'image': 'assets/images/logo.png',
+      },
+      {
+        'name': 'Alex Maina',
+        'rank': '#1 Regional',
+        'image': 'assets/images/logo.png',
+      },
+    ];
+
+    return SizedBox(
+      height: 120,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: topShooters.length,
+        itemBuilder: (context, index) {
+          final shooter = topShooters[index];
+          return Padding(
+            padding: EdgeInsets.only(
+                right: index < topShooters.length - 1 ? 16.0 : 0),
+            child: _buildShooterCard(shooter),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildShooterCard(Map<String, dynamic> shooter) {
+    return Container(
+      width: 100,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor, // Using proper card color
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Shooter avatar
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.accentColor, width: 2),
+              image: DecorationImage(
+                image: AssetImage(shooter['image']),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Shooter name
+          Text(
+            shooter['name'],
+            style: AppTheme.captionStyle.copyWith(
+              fontWeight: FontWeight.w600,
+            ), // 12px SemiBold Raleway
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 2),
+          // Shooter rank
+          Text(
+            shooter['rank'],
+            style: AppTheme.overlineStyle.copyWith(
+              color: AppTheme.accentColor,
+              fontWeight: FontWeight.w500,
+            ), // 10px Medium Raleway
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:pool_billiard_app/core/config/theme.dart';
 import 'package:pool_billiard_app/core/di/injection_container.dart';
 import 'package:pool_billiard_app/core/services/logger_service.dart';
@@ -74,7 +75,8 @@ class _SplashScreenState extends State<SplashScreen>
   // Ensure splash screen shows for minimum duration for better UX
   void _ensureMinimumSplashTime(
       DateTime startTime, VoidCallback navigationCallback) {
-    const minimumSplashDuration = Duration(milliseconds: 1500); // 1.5 seconds
+    const minimumSplashDuration = Duration(
+        milliseconds: 300); // Reduced from 1500ms to 300ms for seamless UX
     final elapsed = DateTime.now().difference(startTime);
 
     if (elapsed < minimumSplashDuration) {
@@ -97,7 +99,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primaryColor,
+      backgroundColor: AppTheme.backgroundColor,
       body: Center(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -105,7 +107,7 @@ class _SplashScreenState extends State<SplashScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // App logo
-              Image.asset(
+              SvgPicture.asset(
                 AssetPaths.logo,
                 width: 200,
                 height: 200,

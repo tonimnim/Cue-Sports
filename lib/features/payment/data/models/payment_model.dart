@@ -5,25 +5,33 @@ class PaymentModel extends Payment {
   const PaymentModel({
     required String id,
     required String userId,
-    required String paymentType,
+    required PaymentType type,
     required String typeId,
-    required String phoneNumber,
     required double amount,
-    required String status,
+    required String phoneNumber,
+    required PaymentStatus status,
     String? mpesaReceiptNumber,
+    String? checkoutRequestId,
+    String? transactionId,
     required DateTime createdAt,
-    DateTime? completedAt,
+    DateTime? updatedAt,
+    Map<String, dynamic>? metadata,
+    String? errorMessage,
   }) : super(
           id: id,
           userId: userId,
-          paymentType: paymentType,
+          type: type,
           typeId: typeId,
-          phoneNumber: phoneNumber,
           amount: amount,
+          phoneNumber: phoneNumber,
           status: status,
           mpesaReceiptNumber: mpesaReceiptNumber,
+          checkoutRequestId: checkoutRequestId,
+          transactionId: transactionId,
           createdAt: createdAt,
-          completedAt: completedAt,
+          updatedAt: updatedAt,
+          metadata: metadata,
+          errorMessage: errorMessage,
         );
 
   /// Create PaymentModel from JSON
@@ -31,16 +39,20 @@ class PaymentModel extends Payment {
     return PaymentModel(
       id: json['id'] as String,
       userId: json['userId'] as String,
-      paymentType: json['paymentType'] as String,
+      type: _parsePaymentType(json['type'] as String),
       typeId: json['typeId'] as String,
-      phoneNumber: json['phoneNumber'] as String,
       amount: (json['amount'] as num).toDouble(),
-      status: json['status'] as String,
+      phoneNumber: json['phoneNumber'] as String,
+      status: _parsePaymentStatus(json['status'] as String),
       mpesaReceiptNumber: json['mpesaReceiptNumber'] as String?,
+      checkoutRequestId: json['checkoutRequestId'] as String?,
+      transactionId: json['transactionId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'] as String)
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
           : null,
+      metadata: json['metadata'] as Map<String, dynamic>?,
+      errorMessage: json['errorMessage'] as String?,
     );
   }
 
@@ -49,41 +61,54 @@ class PaymentModel extends Payment {
     return {
       'id': id,
       'userId': userId,
-      'paymentType': paymentType,
+      'type': type.name,
       'typeId': typeId,
-      'phoneNumber': phoneNumber,
       'amount': amount,
-      'status': status,
+      'phoneNumber': phoneNumber,
+      'status': status.name,
       'mpesaReceiptNumber': mpesaReceiptNumber,
+      'checkoutRequestId': checkoutRequestId,
+      'transactionId': transactionId,
       'createdAt': createdAt.toIso8601String(),
-      'completedAt': completedAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
+      'metadata': metadata,
+      'errorMessage': errorMessage,
     };
   }
 
-  /// Create a copy of PaymentModel with some fields updated
-  PaymentModel copyWith({
-    String? id,
-    String? userId,
-    String? paymentType,
-    String? typeId,
-    String? phoneNumber,
-    double? amount,
-    String? status,
-    String? mpesaReceiptNumber,
-    DateTime? createdAt,
-    DateTime? completedAt,
-  }) {
-    return PaymentModel(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      paymentType: paymentType ?? this.paymentType,
-      typeId: typeId ?? this.typeId,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      amount: amount ?? this.amount,
-      status: status ?? this.status,
-      mpesaReceiptNumber: mpesaReceiptNumber ?? this.mpesaReceiptNumber,
-      createdAt: createdAt ?? this.createdAt,
-      completedAt: completedAt ?? this.completedAt,
-    );
+  /// Parse payment type from string
+  static PaymentType _parsePaymentType(String type) {
+    switch (type) {
+      case 'registration':
+        return PaymentType.registration;
+      case 'tournament':
+        return PaymentType.tournament;
+      case 'merchandise':
+        return PaymentType.merchandise;
+      default:
+        throw ArgumentError('Unknown payment type: $type');
+    }
   }
-} 
+
+  /// Parse payment status from string
+  static PaymentStatus _parsePaymentStatus(String status) {
+    switch (status) {
+      case 'initial':
+        return PaymentStatus.initial;
+      case 'pending':
+        return PaymentStatus.pending;
+      case 'processing':
+        return PaymentStatus.processing;
+      case 'success':
+        return PaymentStatus.success;
+      case 'failed':
+        return PaymentStatus.failed;
+      case 'cancelled':
+        return PaymentStatus.cancelled;
+      case 'timeout':
+        return PaymentStatus.timeout;
+      default:
+        throw ArgumentError('Unknown payment status: $status');
+    }
+  }
+}

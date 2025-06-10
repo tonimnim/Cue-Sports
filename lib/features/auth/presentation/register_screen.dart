@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pool_billiard_app/core/utils/phone_validator.dart';
+import 'package:pool_billiard_app/core/config/theme.dart';
 import 'package:pool_billiard_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:pool_billiard_app/features/auth/presentation/bloc/auth_event.dart';
 import 'package:pool_billiard_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:pool_billiard_app/widget/display/loading_indicator.dart';
 import 'package:pool_billiard_app/features/auth/presentation/pages/sms_verification_screen.dart';
+import 'package:pool_billiard_app/features/auth/presentation/community_selection_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const String routeName = '/register';
@@ -75,8 +77,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('Create Account'),
+        backgroundColor: AppTheme.backgroundColor,
         elevation: 0,
       ),
       body: BlocConsumer<AuthBloc, AuthState>(
@@ -85,26 +89,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: AppTheme.errorColor,
                 behavior: SnackBarBehavior.floating,
               ),
             );
-          } else if (state is PendingRegistrationCreated) {
-            // Navigate to SMS verification screen
+          } else if (state is SmsVerificationSent) {
+            // Navigate to SMS verification screen with new state
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => SmsVerificationScreen(
-                  phoneNumber: _phoneController.text.trim(),
-                  fullName: _fullNameController.text.trim(),
+                  phoneNumber: state.phoneNumber,
+                  fullName: state.fullName,
                 ),
               ),
             );
+          } else if (state is RegistrationDraftSaved) {
+            // For players - navigate to community selection
+            if (state.draft.draftType == 'player') {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => CommunitySelectionScreen(
+                    email: state.draft.email,
+                    isPlayer: true,
+                  ),
+                ),
+              );
+            }
           } else if (state is EmailVerificationCompleted) {
             // Show success message
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.green,
+                backgroundColor: AppTheme.successColor,
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -113,17 +129,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.blue,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          } else if (state is EmailVerificationSent) {
-            // Legacy state - handle for backward compatibility
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 4),
+                backgroundColor: AppTheme.accentColor,
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -132,7 +138,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Account created successfully! Welcome!'),
-                backgroundColor: Colors.green,
+                backgroundColor: AppTheme.successColor,
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -163,115 +169,127 @@ class _RegisterScreenState extends State<RegisterScreen> {
         builder: (context, state) {
           final isLoading = state is AuthLoading;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Show progress message during loading
-                  if (isLoading) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade200),
-                      ),
-                      child: Column(
-                        children: [
-                          const CircularProgressIndicator(),
-                          const SizedBox(height: 12),
-                          Text(
-                            state is AuthLoading
-                                ? state.message
-                                : (_isPlayer
-                                    ? 'Setting up your player account...'
-                                    : 'Creating your fan account...'),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w500,
-                              color: Colors.blue,
-                            ),
+          return Stack(
+            children: [
+              // Main registration form - always visible for instant loading
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Show progress message during loading
+                      if (isLoading) ...[
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardColor,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: AppTheme.accentColor.withOpacity(0.3)),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'This should only take a few seconds',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
+                          child: Column(
+                            children: [
+                              const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                state is AuthLoading
+                                    ? state.message
+                                    : (_isPlayer
+                                        ? 'Setting up your player account...'
+                                        : 'Creating your fan account...'),
+                                style: AppTheme.bodyStyle.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.accentColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'This should only take a few seconds',
+                                style: AppTheme.bodyStyle.copyWith(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      // User type selection
+                      _buildUserTypeSelection(),
+                      const SizedBox(height: 24),
+
+                      // Registration form
+                      _buildFullNameField(),
+                      const SizedBox(height: 16),
+                      _buildEmailField(),
+                      const SizedBox(height: 16),
+                      _buildPhoneField(),
+                      const SizedBox(height: 16),
+                      _buildPasswordField(),
+                      const SizedBox(height: 16),
+                      _buildConfirmPasswordField(),
+                      const SizedBox(height: 24),
+
+                      // Register button
+                      ElevatedButton(
+                        onPressed: isLoading ? null : _handleRegistration,
+                        child: isLoading
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.black),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(_isPlayer
+                                      ? 'Setting up...'
+                                      : 'Creating Account...'),
+                                ],
+                              )
+                            : Text(_isPlayer ? 'Continue' : 'Register'),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Login link
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Already have an account?',
+                            style:
+                                AppTheme.bodyStyle.copyWith(color: Colors.grey),
+                          ),
+                          TextButton(
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    Navigator.pushReplacementNamed(
+                                        context, '/login');
+                                  },
+                            child: const Text('Sign In'),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-
-                  // User type selection
-                  _buildUserTypeSelection(),
-                  const SizedBox(height: 24),
-
-                  // Registration form
-                  _buildFullNameField(),
-                  const SizedBox(height: 16),
-                  _buildEmailField(),
-                  const SizedBox(height: 16),
-                  _buildPhoneField(),
-                  const SizedBox(height: 16),
-                  _buildPasswordField(),
-                  const SizedBox(height: 16),
-                  _buildConfirmPasswordField(),
-                  const SizedBox(height: 24),
-
-                  // Register button
-                  ElevatedButton(
-                    onPressed: isLoading ? null : _handleRegistration,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: isLoading
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(_isPlayer
-                                  ? 'Setting up...'
-                                  : 'Creating Account...'),
-                            ],
-                          )
-                        : Text(_isPlayer ? 'Continue' : 'Register'),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Login link
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Already have an account?'),
-                      TextButton(
-                        onPressed: isLoading
-                            ? null
-                            : () {
-                                Navigator.pushReplacementNamed(
-                                    context, '/login');
-                              },
-                        child: const Text('Sign In'),
-                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           );
         },
       ),
@@ -285,21 +303,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Choose Account Type',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTheme.subheadingStyle,
             ),
             const SizedBox(height: 16),
             ListTile(
-              title: const Text('Fan'),
-              subtitle:
-                  const Text('Follow tournaments and connect with players'),
+              title: Text('Fan', style: AppTheme.bodyStyle),
+              subtitle: Text(
+                'Follow tournaments and connect with players',
+                style: AppTheme.bodyStyle
+                    .copyWith(fontSize: 14, color: Colors.grey),
+              ),
               leading: Radio<bool>(
                 value: false,
                 groupValue: _isPlayer,
+                activeColor: AppTheme.accentColor,
                 onChanged: (value) {
                   setState(() {
                     _isPlayer = value!;
@@ -308,12 +327,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
             ListTile(
-              title: const Text('Player'),
-              subtitle:
-                  const Text('Participate in tournaments and track stats'),
+              title: Text('Player', style: AppTheme.bodyStyle),
+              subtitle: Text(
+                'Participate in tournaments and track stats',
+                style: AppTheme.bodyStyle
+                    .copyWith(fontSize: 14, color: Colors.grey),
+              ),
               leading: Radio<bool>(
                 value: true,
                 groupValue: _isPlayer,
+                activeColor: AppTheme.accentColor,
                 onChanged: (value) {
                   setState(() {
                     _isPlayer = value!;

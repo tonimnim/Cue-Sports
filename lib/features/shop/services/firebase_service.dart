@@ -8,7 +8,8 @@ import 'package:pool_billiard_app/core/services/logger_service.dart';
 import 'package:pool_billiard_app/core/di/injection_container.dart' as di;
 
 class FirebaseService {
-  final firestore.FirebaseFirestore _firestore = firestore.FirebaseFirestore.instance;
+  final firestore.FirebaseFirestore _firestore =
+      firestore.FirebaseFirestore.instance;
   final LoggerService _logger = di.sl<LoggerService>();
 
   // Initialize Firebase
@@ -16,7 +17,7 @@ class FirebaseService {
     await Firebase.initializeApp();
   }
 
-  // Hardcoded user ID
+  // User ID from authentication
   String? get userId => 'user001';
 
   // PRODUCTS
@@ -45,7 +46,8 @@ class FirebaseService {
   // Get all products
   Future<List<Product>> getProducts() async {
     try {
-      final firestore.QuerySnapshot snapshot = await _firestore.collection('products').get();
+      final firestore.QuerySnapshot snapshot =
+          await _firestore.collection('products').get();
 
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
@@ -110,7 +112,7 @@ class FirebaseService {
       return [];
     }
   }
-  
+
   // Get featured products
   Future<List<Product>> getFeaturedProducts() async {
     try {
@@ -146,7 +148,8 @@ class FirebaseService {
   // Get all categories
   Future<List<ProductCategory>> getCategories() async {
     try {
-      final firestore.QuerySnapshot snapshot = await _firestore.collection('categories').get();
+      final firestore.QuerySnapshot snapshot =
+          await _firestore.collection('categories').get();
 
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
@@ -164,10 +167,8 @@ class FirebaseService {
   // Get category by ID
   Future<ProductCategory?> getCategoryById(String categoryId) async {
     try {
-      final firestore.DocumentSnapshot doc = await _firestore
-          .collection('categories')
-          .doc(categoryId)
-          .get();
+      final firestore.DocumentSnapshot doc =
+          await _firestore.collection('categories').doc(categoryId).get();
 
       if (!doc.exists) {
         return null;
@@ -233,10 +234,8 @@ class FirebaseService {
 
     try {
       // Check if product exists
-      final firestore.DocumentSnapshot productDoc = await _firestore
-          .collection('products')
-          .doc(productId)
-          .get();
+      final firestore.DocumentSnapshot productDoc =
+          await _firestore.collection('products').doc(productId).get();
 
       if (!productDoc.exists) {
         throw Exception('Product not found');
@@ -287,10 +286,8 @@ class FirebaseService {
   Future<String> addCartItem(CartItemModel cartItem, String userId) async {
     try {
       // Check if product exists
-      final firestore.DocumentSnapshot productDoc = await _firestore
-          .collection('products')
-          .doc(cartItem.productId)
-          .get();
+      final firestore.DocumentSnapshot productDoc =
+          await _firestore.collection('products').doc(cartItem.productId).get();
 
       if (!productDoc.exists) {
         throw Exception('Product not found');
@@ -401,7 +398,8 @@ class FirebaseService {
         final productId = cartData['productId'];
 
         // Get product details
-        final firestore.DocumentSnapshot productDoc = await _firestore.collection('products').doc(productId).get();
+        final firestore.DocumentSnapshot productDoc =
+            await _firestore.collection('products').doc(productId).get();
         if (productDoc.exists) {
           final productData = productDoc.data() as Map<String, dynamic>;
 
@@ -413,7 +411,8 @@ class FirebaseService {
               name: productData['name'] ?? '',
               description: productData['description'] ?? '',
               price: (productData['price'] ?? 0).toDouble(),
-              imageUrl: productData['imageUrl'] ?? 'assets/images/placeholder.png',
+              imageUrl:
+                  productData['imageUrl'] ?? 'assets/images/placeholder.png',
               category: productData['category'] ?? 'Uncategorized',
               rating: (productData['rating'] ?? 0).toDouble(),
               isPopular: productData['isPopular'] ?? false,
@@ -557,8 +556,10 @@ class FirebaseService {
         final data = doc.data() as Map<String, dynamic>;
 
         // Get order items
-        final firestore.QuerySnapshot itemsSnapshot = await doc.reference.collection('items').get();
-        final List<Map<String, dynamic>> items = itemsSnapshot.docs.map((itemDoc) {
+        final firestore.QuerySnapshot itemsSnapshot =
+            await doc.reference.collection('items').get();
+        final List<Map<String, dynamic>> items =
+            itemsSnapshot.docs.map((itemDoc) {
           final itemData = itemDoc.data() as Map<String, dynamic>;
           return {
             'id': itemDoc.id,
@@ -597,10 +598,8 @@ class FirebaseService {
     }
 
     try {
-      final firestore.DocumentSnapshot orderDoc = await _firestore
-          .collection('orders')
-          .doc(orderId)
-          .get();
+      final firestore.DocumentSnapshot orderDoc =
+          await _firestore.collection('orders').doc(orderId).get();
 
       if (!orderDoc.exists) {
         return null;
@@ -614,8 +613,10 @@ class FirebaseService {
       }
 
       // Get order items
-      final firestore.QuerySnapshot itemsSnapshot = await orderDoc.reference.collection('items').get();
-      final List<Map<String, dynamic>> items = itemsSnapshot.docs.map((itemDoc) {
+      final firestore.QuerySnapshot itemsSnapshot =
+          await orderDoc.reference.collection('items').get();
+      final List<Map<String, dynamic>> items =
+          itemsSnapshot.docs.map((itemDoc) {
         final itemData = itemDoc.data() as Map<String, dynamic>;
         return {
           'id': itemDoc.id,
@@ -643,16 +644,16 @@ class FirebaseService {
       return null;
     }
   }
-  
+
   // ORDERS (New Model-based Methods)
-  
+
   // Create a new order
   Future<String> createNewOrder(Order order) async {
     try {
       _logger.i('Creating new order with user ID: ${order.userId}');
-      _logger.i('Order items count: ${order.items?.length ?? 0}');
+      _logger.i('Order items count: ${order.items.length}');
       _logger.i('Order receipt number: ${order.receiptNumber}');
-      
+
       // Make sure userId is set to our test user
       final orderToSave = Order(
         id: order.id,
@@ -664,25 +665,26 @@ class FirebaseService {
         shippingAddress: order.shippingAddress,
         notes: order.notes,
         receiptNumber: order.receiptNumber,
-        cartItemIds: order.cartItemIds,
         items: order.items,
         createdAt: order.createdAt,
       );
-      
+
       // Add order to Firestore and get the document reference
-      final docRef = await _firestore.collection('orders').add(orderToSave.toMap());
+      final docRef =
+          await _firestore.collection('orders').add(orderToSave.toMap());
       _logger.i('Order created with ID: ${docRef.id}');
-      
+
       // Verify the order was saved by retrieving it
-      final savedDoc = await _firestore.collection('orders').doc(docRef.id).get();
+      final savedDoc =
+          await _firestore.collection('orders').doc(docRef.id).get();
       if (savedDoc.exists) {
         _logger.i('Order verified in database');
         final savedData = savedDoc.data();
-        _logger.i('Saved order user ID: ${savedData['userId']}');
+        _logger.i('Saved order user ID: ${savedData!['userId']}');
       } else {
         _logger.w('WARNING: Order not found immediately after creation');
       }
-      
+
       // Return the document ID
       return docRef.id;
     } catch (e, stackTrace) {
@@ -691,11 +693,10 @@ class FirebaseService {
       return '';
     }
   }
-  
+
   // Get orders for a user (model-based)
   Future<List<Order>> getUserOrdersModel(String userId) async {
-    // Always use hardcoded user_id1 for testing
-    userId = 'user_id1'; // Override with hardcoded value
+    // Use actual user ID from authentication
     try {
       _logger.i('Getting orders for userId: $userId');
       // First try a simple query without complex filters
@@ -703,17 +704,16 @@ class FirebaseService {
           .collection('orders')
           .where('userId', isEqualTo: userId)
           .get(); // Removed orderBy to avoid issues with timestamp fields
-      
+
       _logger.i('Got ${snapshot.docs.length} orders from Firestore');
-      
+
       if (snapshot.docs.isEmpty) {
         // Let's try without filtering by userId for testing
         _logger.i('No orders found for user, trying to get all orders...');
-        final allOrdersSnapshot = await _firestore
-            .collection('orders')
-            .get();
-        _logger.i('Found ${allOrdersSnapshot.docs.length} total orders in database');
-        
+        final allOrdersSnapshot = await _firestore.collection('orders').get();
+        _logger.i(
+            'Found ${allOrdersSnapshot.docs.length} total orders in database');
+
         if (allOrdersSnapshot.docs.isNotEmpty) {
           // Log some information about the first order to help diagnose the issue
           final firstOrder = allOrdersSnapshot.docs.first;
@@ -722,13 +722,13 @@ class FirebaseService {
           _logger.i('First order userId: ${firstOrderData['userId']}');
         }
       }
-      
+
       final orders = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         _logger.i('Processing order: ${doc.id}');
         return Order.fromMap(data, doc.id);
       }).toList();
-      
+
       _logger.i('Returning ${orders.length} orders to OrderProvider');
       return orders;
     } catch (e, stackTrace) {
@@ -737,19 +737,17 @@ class FirebaseService {
       return [];
     }
   }
-  
+
   // Get order by ID
   Future<Order?> getOrderById(String orderId) async {
     try {
-      final firestore.DocumentSnapshot doc = await _firestore
-          .collection('orders')
-          .doc(orderId)
-          .get();
-          
+      final firestore.DocumentSnapshot doc =
+          await _firestore.collection('orders').doc(orderId).get();
+
       if (!doc.exists) {
         return null;
       }
-      
+
       final data = doc.data() as Map<String, dynamic>;
       return Order.fromMap(data, doc.id);
     } catch (e) {
@@ -757,7 +755,7 @@ class FirebaseService {
       return null;
     }
   }
-  
+
   // Update order status
   Future<void> updateOrderStatus(String orderId, String status) async {
     try {
@@ -770,29 +768,12 @@ class FirebaseService {
       throw Exception('Failed to update order status');
     }
   }
-  
+
   // Get all cart items for an order
   Future<List<CartItemModel>> getOrderCartItems(Order order) async {
     try {
-      List<CartItemModel> cartItems = [];
-      
-      for (final cartItemId in order.cartItemIds) {
-        // Find the cart item
-        final firestore.QuerySnapshot snapshot = await _firestore
-            .collection('carts')
-            .doc(order.userId)
-            .collection('items')
-            .where(firestore.FieldPath.documentId, isEqualTo: cartItemId)
-            .limit(1)
-            .get();
-            
-        if (snapshot.docs.isNotEmpty) {
-          final data = snapshot.docs.first.data() as Map<String, dynamic>;
-          cartItems.add(CartItemModel.fromMap(data, snapshot.docs.first.id));
-        }
-      }
-      
-      return cartItems;
+      // Order already has the items, just return them
+      return order.items;
     } catch (e) {
       _logger.e('Error getting order cart items: $e');
       return [];

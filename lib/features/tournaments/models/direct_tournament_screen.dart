@@ -14,14 +14,16 @@ class DirectTournamentScreen extends StatefulWidget {
   State<DirectTournamentScreen> createState() => _DirectTournamentScreenState();
 }
 
-class _DirectTournamentScreenState extends State<DirectTournamentScreen> with SingleTickerProviderStateMixin {
+class _DirectTournamentScreenState extends State<DirectTournamentScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  
+
   // Directly load tournaments without provider
-  final List<Tournament> _tournaments = HardCodedTournaments.getSampleTournaments();
-  
+  final List<Tournament> _tournaments =
+      HardCodedTournaments.getSampleTournaments();
+
   // Current user ID
   final String _userId = 'user123';
 
@@ -29,9 +31,10 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
-    print('DirectTournamentScreen: Loaded ${_tournaments.length} tournaments directly');
-    
+
+    print(
+        'DirectTournamentScreen: Loaded ${_tournaments.length} tournaments directly');
+
     // Listen for search changes
     _searchController.addListener(() {
       setState(() {
@@ -51,7 +54,7 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
   Widget build(BuildContext context) {
     // Get featured tournament (closest upcoming or explicitly featured)
     final featuredTournament = _getFeaturedTournament();
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
       appBar: AppBar(
@@ -81,14 +84,14 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
               },
             ),
           ),
-          
+
           // Featured Tournament Card
           if (featuredTournament != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: TournamentCard(
                 name: featuredTournament.name,
-                type: featuredTournament.type,
+                type: featuredTournament.typeDisplayName,
                 location: featuredTournament.location,
                 dateRange: featuredTournament.dateRange,
                 players: featuredTournament.maxPlayers,
@@ -110,7 +113,7 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
                 },
               ),
             ),
-          
+
           // Tab Bar - Horizontal fill layout with yellow selection
           Container(
             margin: const EdgeInsets.only(top: 16, left: 16, right: 16),
@@ -134,7 +137,7 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
               ],
             ),
           ),
-          
+
           // Tab Bar View
           Expanded(
             child: TabBarView(
@@ -158,22 +161,22 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
     if (explicitlyFeatured.isNotEmpty) {
       return explicitlyFeatured.first;
     }
-    
+
     // If no tournament is marked as featured, use the closest upcoming one
     final now = DateTime.now();
     final upcomingTournaments = _tournaments
         .where((t) => _parseDate(t.dateRange).isAfter(now))
         .toList();
-    
+
     if (upcomingTournaments.isNotEmpty) {
-      upcomingTournaments.sort((a, b) => 
-          _parseDate(a.dateRange).compareTo(_parseDate(b.dateRange)));
+      upcomingTournaments.sort(
+          (a, b) => _parseDate(a.dateRange).compareTo(_parseDate(b.dateRange)));
       return upcomingTournaments.first;
     }
-    
+
     return null;
   }
-  
+
   // Helper method to parse date string
   DateTime _parseDate(String dateStr) {
     try {
@@ -185,7 +188,7 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
         final year = int.parse(parts[1]);
         return DateTime(year, month, day);
       }
-      
+
       // Handle format: 'Apr 15 2025' or similar
       final spaceParts = dateStr.split(' ');
       if (spaceParts.length >= 3) {
@@ -197,15 +200,25 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
     } catch (e) {
       print('Error parsing date: $dateStr - $e');
     }
-    
+
     return DateTime.now(); // Default to current date on parsing error
   }
 
   // Helper to convert month name to number
   int _getMonthNumber(String month) {
     const months = {
-      'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-      'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+      'Jan': 1,
+      'Feb': 2,
+      'Mar': 3,
+      'Apr': 4,
+      'May': 5,
+      'Jun': 6,
+      'Jul': 7,
+      'Aug': 8,
+      'Sep': 9,
+      'Oct': 10,
+      'Nov': 11,
+      'Dec': 12
     };
     return months[month] ?? 1;
   }
@@ -216,35 +229,38 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
     bool upcoming = false,
     bool past = false,
   }) {
-    print('DirectScreen: getFilteredTournaments called: search="$searchQuery", upcoming=$upcoming, past=$past');
-    print('DirectScreen: Total tournaments before filtering: ${_tournaments.length}');
-    
+    print(
+        'DirectScreen: getFilteredTournaments called: search="$searchQuery", upcoming=$upcoming, past=$past');
+    print(
+        'DirectScreen: Total tournaments before filtering: ${_tournaments.length}');
+
     final now = DateTime.now();
-    
+
     final result = _tournaments.where((tournament) {
       // Apply date filter
       final tournamentDate = _parseDate(tournament.dateRange);
       final isPast = tournamentDate.isBefore(now);
-      
+
       if (upcoming && isPast) return false;
       if (past && !isPast) return false;
-      
+
       // Apply search query
       if (searchQuery.isEmpty) return true;
-      
+
       final query = searchQuery.toLowerCase();
       return tournament.name.toLowerCase().contains(query) ||
-          tournament.type.toLowerCase().contains(query) ||
+          tournament.typeDisplayName.toLowerCase().contains(query) ||
           tournament.location.toLowerCase().contains(query);
     }).toList();
-    
+
     print('DirectScreen: Tournaments after filtering: ${result.length}');
     return result;
   }
 
   Widget _buildTournamentList({bool upcoming = false, bool past = false}) {
-    print('DirectScreen: _buildTournamentList called: upcoming=$upcoming, past=$past, search="$_searchQuery"');
-    
+    print(
+        'DirectScreen: _buildTournamentList called: upcoming=$upcoming, past=$past, search="$_searchQuery"');
+
     final tournaments = _getFilteredTournaments(
       searchQuery: _searchQuery,
       upcoming: upcoming,
@@ -277,14 +293,14 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
       children: [
         ...tournaments.map((tournament) {
           final isRegistered = tournament.isUserRegistered(_userId);
-          
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 12.0),
             child: Stack(
               children: [
                 TournamentCard(
                   name: tournament.name,
-                  type: tournament.type,
+                  type: tournament.typeDisplayName,
                   location: tournament.location,
                   dateRange: tournament.dateRange,
                   players: tournament.maxPlayers,
@@ -293,8 +309,10 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
                     if (isRegistered) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('You are already registered for this tournament'),
-                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          content: Text(
+                              'You are already registered for this tournament'),
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
                         ),
                       );
                     } else {
@@ -319,7 +337,8 @@ class _DirectTournamentScreenState extends State<DirectTournamentScreen> with Si
                     top: 10,
                     right: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(12),

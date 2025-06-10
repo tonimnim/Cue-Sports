@@ -322,3 +322,51 @@ class SmsCodeResent extends AuthState {
   @override
   List<Object> get props => [phoneNumber, message];
 }
+
+/// SMS verification code sent, waiting for user input
+class SmsVerificationSent extends AuthState {
+  final String phoneNumber;
+  final String fullName;
+  final String userType;
+  final String message;
+
+  const SmsVerificationSent({
+    required this.phoneNumber,
+    required this.fullName,
+    required this.userType,
+    required this.message,
+  });
+
+  @override
+  List<Object> get props => [phoneNumber, fullName, userType, message];
+}
+
+/// SMS code verification in progress
+class SmsVerificationInProgress extends AuthState {
+  final String phoneNumber;
+  final String verificationCode;
+
+  const SmsVerificationInProgress({
+    required this.phoneNumber,
+    required this.verificationCode,
+  });
+
+  @override
+  List<Object> get props => [phoneNumber, verificationCode];
+}
+
+/// SMS verification failed with specific error
+class SmsVerificationFailed extends AuthState {
+  final String phoneNumber;
+  final String error;
+  final bool canRetry;
+
+  const SmsVerificationFailed({
+    required this.phoneNumber,
+    required this.error,
+    this.canRetry = true,
+  });
+
+  @override
+  List<Object> get props => [phoneNumber, error, canRetry];
+}

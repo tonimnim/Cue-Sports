@@ -49,12 +49,7 @@ class AppBottomNavigation extends StatelessWidget {
                 activeIcon: Icons.people_rounded,
                 label: 'Community',
               ),
-              _buildNavItem(
-                index: 3,
-                icon: Icons.shopping_bag_outlined,
-                activeIcon: Icons.shopping_bag_rounded,
-                label: 'Shop',
-              ),
+              _buildShopNavItem(),
               _buildNavItem(
                 index: 4,
                 icon: Icons.person_outline,
@@ -63,6 +58,64 @@ class AppBottomNavigation extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShopNavItem() {
+    final isActive = currentIndex == 3;
+    
+    return GestureDetector(
+      onTap: () => onTap(3),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icon without badge
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: isActive 
+                  ? AppTheme.accentColor.withOpacity(0.1)
+                  : Colors.transparent,
+              ),
+              child: Icon(
+                isActive ? Icons.shopping_bag_rounded : Icons.shopping_bag_outlined,
+                color: isActive 
+                  ? AppTheme.accentColor 
+                  : AppTheme.textLight.withOpacity(0.6),
+                size: 20,
+              ),
+            ),
+            
+            const SizedBox(height: 1),
+            
+            // Label with animation
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive 
+                  ? AppTheme.accentColor 
+                  : AppTheme.textLight.withOpacity(0.6),
+                height: 1.0,
+              ),
+              child: const Text(
+                'Shop',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
       ),
     );

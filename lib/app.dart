@@ -11,9 +11,11 @@ import 'features/auth/presentation/pages/email_verification_screen.dart';
 import 'features/auth/presentation/pages/player_payment_screen.dart';
 import 'features/community/presentation/bloc/community_bloc.dart';
 import 'features/payment/presentation/bloc/payment_bloc.dart';
+import 'features/shop/presentation/bloc/shop_bloc.dart';
 import 'main_screen/splash_screen.dart';
 import 'main_screen/home/home.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/auth/presentation/pages/sms_verification_screen.dart';
 
 /// Main application widget with integrated authentication flow
 class App extends StatelessWidget {
@@ -36,6 +38,9 @@ class App extends StatelessWidget {
         ),
         BlocProvider<PaymentBloc>(
           create: (context) => di.sl<PaymentBloc>(),
+        ),
+        BlocProvider<ShopBloc>(
+          create: (context) => di.sl<ShopBloc>(),
         ),
       ],
       child: MaterialApp(
@@ -84,6 +89,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
             ),
             (route) => false,
           );
+        } else if (state is SmsVerificationSent) {
+          // Handle SMS verification navigation
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => SmsVerificationScreen(
+                phoneNumber: state.phoneNumber,
+                fullName: state.fullName,
+              ),
+            ),
+            (route) => false,
+          );
         } else if (state is PlayerAccountCreated) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
@@ -105,6 +121,28 @@ class _AuthWrapperState extends State<AuthWrapper> {
             ),
             (route) => false,
           );
+
+          // Handle successful registration completion - navigate to home or payment if needed
+          if (state.user.userType == 'player' &&
+              state.user.paymentStatus == false) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (context) => PlayerPaymentScreen(
+                  user: state.user,
+                  paymentId: state.user.playerPaymentId ?? '',
+                  paymentDeadline:
+                      state.user.createdAt.add(const Duration(days: 2)),
+                ),
+              ),
+              (route) => false,
+            );
+          } else {
+            // Fan or paid player - go directly to home
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+              (route) => false,
+            );
+          }
         } else if (state is RegistrationExpired) {
           // Show expired message and redirect to login
           ScaffoldMessenger.of(context).showSnackBar(
@@ -126,19 +164,33 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
       },
       builder: (context, state) {
-        // Show splash screen during initialization or loading
-        if (_isInitializing || state is AuthInitial || state is AuthLoading) {
+        // Show splash screen ONLY during true initialization - minimize splash time
+        if (_isInitializing || state is AuthInitial) {
           return const SplashScreen();
         }
 
-        // PRIORITY: Handle authenticated users first (most common case)
-        if (state is AuthAuthenticated ||
-            state is FanRegistrationComplete ||
-            state is PaymentCompleted) {
+        // PRIORITY 1: Handle authenticated users IMMEDIATELY (most common case after logout)
+        if (state is AuthAuthenticated) {
           return const HomeScreen();
         }
 
-        // Handle specific auth states for non-authenticated users
+        // Handle registration completion states
+        if (state is FanRegistrationComplete ||
+            state is PaymentCompleted ||
+            state is RegistrationCompleted) {
+          return const HomeScreen();
+        }
+
+        // PRIORITY 2: Handle loading states without splash screen for better responsiveness
+        if (state is AuthLoading) {
+          // For logout -> login flow, show login screen immediately with loading overlay
+          if (state.message.contains('Signing out')) {
+            return const LoginScreen(); // User will see login form immediately
+          }
+          return const SplashScreen(); // Only for initial app load
+        }
+
+        // PRIORITY 3: Handle specific auth states for non-authenticated users
         if (state is EmailVerificationSent ||
             state is PollingEmailVerification) {
           return EmailVerificationScreen(
@@ -202,7 +254,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return const SplashScreen(); // This will be handled by route navigation
         }
 
-        // Default to login screen for unauthenticated users or errors
+        // DEFAULT: Show login screen immediately for unauthenticated users or errors
+        // This ensures super fast loading after logout
         return const LoginScreen();
       },
     );

@@ -1,25 +1,12 @@
 import 'package:equatable/equatable.dart';
 
-/// Role of a community member
-enum CommunityRole {
-  /// Regular member
-  member,
-  
-  /// Community leader
-  leader,
-  
-  /// Community moderator
-  moderator,
-}
-
-/// Entity representing a member of a community
+/// Entity representing a member of a community (players only)
 class CommunityMember extends Equatable {
   final String id;
   final String userId;
   final String communityId;
   final String displayName;
   final String? profileImageUrl;
-  final CommunityRole role;
   final DateTime joinedAt;
   final DateTime? lastActiveAt;
   final int points;
@@ -33,7 +20,6 @@ class CommunityMember extends Equatable {
     required this.communityId,
     required this.displayName,
     this.profileImageUrl,
-    required this.role,
     required this.joinedAt,
     this.lastActiveAt,
     this.points = 0,
@@ -41,12 +27,6 @@ class CommunityMember extends Equatable {
     this.achievements = const [],
     this.badges = const [],
   });
-
-  /// Check if member is a leader
-  bool get isLeader => role == CommunityRole.leader;
-
-  /// Check if member is a moderator
-  bool get isModerator => role == CommunityRole.moderator;
 
   /// Check if member has achievements
   bool get hasAchievements => achievements.isNotEmpty;
@@ -61,7 +41,6 @@ class CommunityMember extends Equatable {
     String? communityId,
     String? displayName,
     String? profileImageUrl,
-    CommunityRole? role,
     DateTime? joinedAt,
     DateTime? lastActiveAt,
     int? points,
@@ -75,7 +54,6 @@ class CommunityMember extends Equatable {
       communityId: communityId ?? this.communityId,
       displayName: displayName ?? this.displayName,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
-      role: role ?? this.role,
       joinedAt: joinedAt ?? this.joinedAt,
       lastActiveAt: lastActiveAt ?? this.lastActiveAt,
       points: points ?? this.points,
@@ -92,7 +70,6 @@ class CommunityMember extends Equatable {
         communityId,
         displayName,
         profileImageUrl,
-        role,
         joinedAt,
         lastActiveAt,
         points,
@@ -100,4 +77,4 @@ class CommunityMember extends Equatable {
         achievements,
         badges,
       ];
-} 
+}

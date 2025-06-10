@@ -59,5 +59,5 @@ class StringConstants {
 }
 
 class AssetPaths {
-  static const String logo = 'assets/images/logo.png';
+  static const String logo = 'assets/images/BILLIARD POOL.svg';
 }

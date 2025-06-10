@@ -1,377 +1,395 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:pool_billiard_app/core/config/theme.dart';
-import 'package:pool_billiard_app/core/di/injection_container.dart';
-import 'package:pool_billiard_app/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:pool_billiard_app/features/auth/presentation/bloc/auth_state.dart';
-import 'package:pool_billiard_app/features/community/domain/entities.dart';
-import 'package:pool_billiard_app/features/community/presentation/bloc/community_bloc.dart';
-import 'package:pool_billiard_app/features/community/presentation/bloc/community_event.dart';
-import 'package:pool_billiard_app/features/community/presentation/bloc/community_state.dart';
-import 'package:pool_billiard_app/widget/buttons/primary_button.dart';
-import 'package:pool_billiard_app/widget/display/loading_indicator.dart';
+import '../../../core/config/theme.dart';
+import '../../auth/presentation/bloc/auth_bloc.dart';
+import '../../auth/presentation/bloc/auth_state.dart';
+import 'bloc/community_bloc.dart';
+import 'bloc/community_event.dart';
+import 'bloc/community_state.dart';
 
-/// Community details screen
-///
-/// Shows detailed information about a specific community
-class CommunityDetailsScreen extends StatelessWidget {
-  static const String routeName = '/community-details';
-
-  final String communityId;
+class CommunityDetailsScreen extends StatefulWidget {
+  final dynamic community;
 
   const CommunityDetailsScreen({
-    Key? key,
-    required this.communityId,
-  }) : super(key: key);
+    super.key,
+    required this.community,
+  });
+
+  @override
+  State<CommunityDetailsScreen> createState() => _CommunityDetailsScreenState();
+}
+
+class _CommunityDetailsScreenState extends State<CommunityDetailsScreen> {
+  bool _isJoining = false;
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) =>
-          sl<CommunityBloc>()..add(LoadCommunityDetailsEvent(communityId)),
-      child: const Scaffold(
-        body: _CommunityDetailsView(),
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildCommunityHeader(),
+                  const SizedBox(height: 24),
+                  _buildDescription(),
+                  const SizedBox(height: 24),
+                  _buildStats(),
+                  const SizedBox(height: 24),
+                  _buildLocation(),
+                  const SizedBox(height: 24),
+                  _buildTags(),
+                  const SizedBox(height: 24),
+                  _buildAdminInfo(),
+                  const SizedBox(height: 32),
+                  _buildActionButtons(),
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-}
 
-class _CommunityDetailsView extends StatelessWidget {
-  const _CommunityDetailsView({Key? key}) : super(key: key);
+  Widget _buildSliverAppBar() {
+    final name = _getSafeProperty('name', 'Community');
+    final logoUrl = _getSafeProperty('logoUrl', null);
+    final initials = _getInitials(name);
 
-  @override
-  Widget build(BuildContext context) {
-    final authState = context.watch<AuthBloc>().state;
-    final String? userId =
-        authState is AuthAuthenticated ? authState.user.id : null;
-
-    // If user is authenticated, check membership status
-    if (userId != null) {
-      final communityId =
-          (context.read<CommunityBloc>().state.selectedCommunity?.id);
-      if (communityId != null) {
-        context.read<CommunityBloc>().add(CheckCommunityMembershipEvent(
-              userId: userId,
-              communityId: communityId,
-            ));
-      }
-    }
-
-    return BlocBuilder<CommunityBloc, CommunityState>(
-      builder: (context, state) {
-        if (state.status == CommunityStatus.loading ||
-            state.selectedCommunity == null) {
-          return const Center(child: LoadingIndicator());
-        } else if (state.status == CommunityStatus.error) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  state.errorMessage ?? 'Failed to load community details',
-                  style: const TextStyle(color: AppTheme.errorColor),
-                ),
-                const SizedBox(height: 16),
-                PrimaryButton(
-                  text: 'Try Again',
-                  onPressed: () => context.read<CommunityBloc>().add(
-                        LoadCommunityDetailsEvent(
-                            state.selectedCommunity?.id ?? ''),
-                      ),
-                ),
+    return SliverAppBar(
+      expandedHeight: 200,
+      floating: false,
+      pinned: true,
+      backgroundColor: AppTheme.primaryColor,
+      foregroundColor: Colors.white,
+      flexibleSpace: FlexibleSpaceBar(
+        title: Text(
+          name,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppTheme.primaryColor,
+                AppTheme.primaryColor.withOpacity(0.8),
               ],
             ),
-          );
-        }
-
-        final community = state.selectedCommunity!;
-        // Player users can join communities
-        // Check if the user is authenticated and assume they can join if they have a userId
-        final isPlayerUser = userId != null && authState is AuthAuthenticated;
-        final isAdmin = community.adminId == userId;
-
-        return CustomScrollView(
-          slivers: [
-            // App bar
-            SliverAppBar(
-              expandedHeight: 200.0,
-              pinned: true,
-              flexibleSpace: FlexibleSpaceBar(
-                title: Text(community.name),
-                background: Container(
-                  color: AppTheme.primaryColor,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 20),
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: const BoxDecoration(
-                            color: AppTheme.accentColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              community.name.substring(0, 1).toUpperCase(),
-                              style: const TextStyle(
-                                color: AppTheme.textDark,
-                                fontSize: 40,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+          ),
+          child: Center(
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.2),
+                border:
+                    Border.all(color: Colors.white.withOpacity(0.3), width: 3),
               ),
-              actions: [
-                if (isAdmin)
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () {
-                      // Navigate to edit community screen
-                      // This functionality would be implemented in the admin web app
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                'Editing is available in the admin web app')),
-                      );
-                    },
-                  ),
-              ],
-            ),
-
-            // Content
-            SliverList(
-              delegate: SliverChildListDelegate([
-                // Basic Info Card
-                _buildInfoCard(
-                  title: 'Community Information',
-                  children: [
-                    if (community.description != null &&
-                        community.description!.isNotEmpty)
-                      _buildInfoRow(Icons.info_outline, 'Description',
-                          community.description!),
-                    if (community.location != null &&
-                        community.location!.isNotEmpty)
-                      _buildInfoRow(Icons.location_on_outlined, 'Location',
-                          community.location!),
-                    _buildInfoRow(Icons.people_outline, 'Members',
-                        '${community.memberCount}'),
-                    _buildInfoRow(Icons.emoji_events_outlined, 'Ranking',
-                        community.rankingTier),
-                    _buildInfoRow(
-                      Icons.calendar_today_outlined,
-                      'Established',
-                      '${community.createdAt.day}/${community.createdAt.month}/${community.createdAt.year}',
-                    ),
-                  ],
-                ),
-
-                // Statistics Card
-                _buildInfoCard(
-                  title: 'Community Statistics',
-                  children: [
-                    _buildStatisticRow('Community Points',
-                        community.communityPoints.toStringAsFixed(0)),
-                    _buildStatisticRow(
-                        'Trophies', community.trophyCount.toString()),
-                    _buildStatisticRow(
-                        'Achievements', community.achievementCount.toString()),
-                  ],
-                ),
-
-                // Achievements section (if any)
-                if (community.hasAchievements)
-                  _buildAchievementsSection(community),
-
-                // Join button for players who are not members
-                if (isPlayerUser && !(state.isMember ?? false) && !isAdmin) ...[
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: PrimaryButton(
-                      text: 'Join Community',
-                      onPressed: () {
-                        context.read<CommunityBloc>().add(JoinCommunityEvent(
-                              userId: userId!,
-                              communityId: community.id,
-                            ));
-                      },
-                    ),
-                  ),
-                ],
-
-                // Membership status indicator
-                if (userId != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 8.0),
-                    child: Card(
-                      color:
-                          (state.isMember ?? false) ? Colors.green[50] : Colors.orange[50],
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            Icon(
-                              (state.isMember ?? false) ? Icons.check_circle : Icons.info,
-                              color:
-                                  (state.isMember ?? false) ? Colors.green : Colors.orange,
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                (state.isMember ?? false)
-                                    ? 'You are a member of this community'
-                                    : isPlayerUser
-                                        ? 'You are not a member of this community'
-                                        : 'Upgrade to player account to join communities',
-                                style: TextStyle(
-                                  color: (state.isMember ?? false)
-                                      ? Colors.green[800]
-                                      : Colors.orange[800],
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+              child: logoUrl != null
+                  ? ClipOval(
+                      child: Image.network(
+                        logoUrl,
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildInitialsAvatar(initials, 100);
+                        },
                       ),
-                    ),
-                  ),
-                ],
-
-                // Upgrade prompt for non-player users
-                // Show upgrade button only for authenticated non-player users (fans)
-                if (userId != null && !isPlayerUser) 
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: PrimaryButton(
-                      text: 'Upgrade to Player',
-                      onPressed: () {
-                        Navigator.of(context).pushNamed('/upgrade-player');
-                      },
-                    ),
-                  ),
-
-                const SizedBox(height: 32),
-              ]),
+                    )
+                  : _buildInitialsAvatar(initials, 100),
             ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildInfoCard(
-      {required String title, required List<Widget> children}) {
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-            const Divider(),
-            const SizedBox(height: 8),
-            ...children,
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppTheme.secondary1, size: 20),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildInitialsAvatar(String initials, double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withOpacity(0.2),
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: TextStyle(
+            fontSize: size * 0.3,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommunityHeader() {
+    final name = _getSafeProperty('name', 'Community');
+    final createdAt = _getSafeProperty('createdAt', null);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name,
+          style: AppTheme.headingStyle.copyWith(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        if (createdAt != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Established ${_formatDate(createdAt)}',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDescription() {
+    final description = _getSafeProperty('description', '');
+
+    if (description.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'About',
+          style: AppTheme.subheadingStyle.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            description,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.9),
+              height: 1.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStats() {
+    final memberCount = _getSafeProperty('memberCount', 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Community Stats',
+          style: AppTheme.h2Style, // Using proper typography H2 - 20px SemiBold
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.people,
+                  label: 'Members',
+                  value: memberCount.toString(),
+                  color: AppTheme.accentColor,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: const TextStyle(color: AppTheme.textDark),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildStatisticRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textDark,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppTheme.accentColor,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textDark,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAchievementsSection(Community community) {
-    return _buildInfoCard(
-      title: 'Achievements',
+  Widget _buildStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Column(
       children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white.withOpacity(0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocation() {
+    final location = _getSafeProperty('location', '');
+    final county = _getSafeProperty('county', '');
+
+    if (location.isEmpty && county.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Location',
+          style: AppTheme.subheadingStyle.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.location_on,
+                  color: AppTheme.accentColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (location.isNotEmpty) ...[
+                      Text(
+                        location,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                    if (county.isNotEmpty) ...[
+                      Text(
+                        county,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTags() {
+    final tags = _getSafeProperty('tags', <String>[]);
+
+    if (tags.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Tags',
+          style: AppTheme.subheadingStyle.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: (community.achievements ?? []).map((achievement) {
-            return Chip(
-              backgroundColor: AppTheme.accentColor.withValues(alpha: 51), // 0.2 * 255 ≈ 51
-              avatar:
-                  const Icon(Icons.star, color: AppTheme.accentColor, size: 18),
-              label: Text(
-                achievement,
+          children: tags.map((tag) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.accentColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppTheme.accentColor.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                tag,
                 style: const TextStyle(
-                  color: AppTheme.textDark,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             );
@@ -379,5 +397,251 @@ class _CommunityDetailsView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildAdminInfo() {
+    final adminUserId = _getSafeProperty('adminUserId', '');
+
+    if (adminUserId.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Community Admin',
+          style: AppTheme.subheadingStyle.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.successColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.admin_panel_settings,
+                  color: AppTheme.successColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Admin ID: $adminUserId',
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        if (authState is! AuthAuthenticated) {
+          return const SizedBox.shrink();
+        }
+
+        final currentUser = authState.user;
+        final userType = currentUser.userType;
+
+        if (userType == 'player') {
+          return BlocBuilder<CommunityBloc, CommunityState>(
+            builder: (context, communityState) {
+              final userCommunity = communityState.userCommunity;
+
+              // Players already join a community during registration
+              // Show info message instead of join button
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.accentColor.withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: AppTheme.accentColor,
+                      size: 24,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      userCommunity != null
+                          ? 'You are a member of ${userCommunity.name}'
+                          : 'Community information',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      userCommunity != null
+                          ? 'Players are automatically assigned to their community during registration.'
+                          : 'Players join communities during registration.',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        } else {
+          // For fans - show spectator info
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.blue.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.visibility,
+                  color: Colors.blue,
+                  size: 24,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Community Spectator',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Fans can view community information but cannot join communities.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  void _handleJoinCommunity(String userId, String communityId) {
+    if (userId.isEmpty || communityId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to join community. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isJoining = true;
+    });
+
+    context.read<CommunityBloc>().add(JoinCommunityEvent(
+          communityId: communityId,
+          userId: userId,
+        ));
+  }
+
+  // Helper methods
+  T _getSafeProperty<T>(String property, T defaultValue) {
+    try {
+      if (widget.community == null) return defaultValue;
+
+      final obj = widget.community;
+      final value =
+          obj is Map ? obj[property] : _getPropertyFromObject(obj, property);
+
+      if (value == null) return defaultValue;
+      return value as T;
+    } catch (e) {
+      return defaultValue;
+    }
+  }
+
+  dynamic _getPropertyFromObject(dynamic obj, String property) {
+    try {
+      switch (property) {
+        case 'id':
+          return obj.id;
+        case 'name':
+          return obj.name;
+        case 'description':
+          return obj.description ?? '';
+        case 'location':
+          return obj.location ?? '';
+        case 'county':
+          return obj.county ?? '';
+        case 'memberCount':
+          return obj.memberCount ?? 0;
+        case 'logoUrl':
+          return obj.logoUrl;
+        case 'tags':
+          return obj.tags ?? <String>[];
+        case 'adminUserId':
+          return obj.adminUserId ?? '';
+        case 'createdAt':
+          return obj.createdAt;
+        default:
+          return null;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'CC';
+    final words = name.split(' ');
+    if (words.length >= 2) {
+      return '${words[0][0]}${words[1][0]}'.toUpperCase();
+    }
+    return name.length >= 2
+        ? name.substring(0, 2).toUpperCase()
+        : name.toUpperCase();
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+    return '${date.day}/${date.month}/${date.year}';
   }
 }

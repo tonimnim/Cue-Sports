@@ -1,133 +1,137 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../core/error/exceptions.dart';
 import '../models/community_model.dart';
-import '../models/community_post_model.dart';
-import '../models/community_event_model.dart';
+import '../models/community_member_model.dart';
 
+/// Interface for local data source operations related to community features
+/// Handles caching of community data for offline access
 abstract class CommunityLocalDataSource {
-  /// Gets the cached list of communities
+  // Community caching
   Future<List<CommunityModel>> getCachedCommunities();
-
-  /// Caches the list of communities
   Future<void> cacheCommunities(List<CommunityModel> communities);
+  Future<void> clearCachedCommunities();
 
-  /// Gets the cached list of community events
-  Future<List<CommunityEventModel>> getCachedEvents(String communityId);
+  // Member caching
+  Future<List<CommunityMemberModel>> getCachedMembers(String communityId);
+  Future<void> cacheMembers(
+      String communityId, List<CommunityMemberModel> members);
+  Future<void> clearCachedMembers(String communityId);
 
-  /// Caches the list of community events
-  Future<void> cacheEvents(String communityId, List<CommunityEventModel> events);
-
-  /// Gets the cached list of community posts
-  Future<List<CommunityPostModel>> getCachedPosts(String communityId);
-
-  /// Caches the list of community posts
-  Future<void> cachePosts(String communityId, List<CommunityPostModel> posts);
-
-  /// Clears all cached data
-  Future<void> clearCache();
+  // User community caching
+  Future<CommunityModel?> getCachedUserCommunity(String userId);
+  Future<void> cacheUserCommunity(String userId, CommunityModel? community);
+  Future<void> clearCachedUserCommunity(String userId);
 }
 
+/// Implementation of CommunityLocalDataSource using SharedPreferences
 class CommunityLocalDataSourceImpl implements CommunityLocalDataSource {
-  final SharedPreferences sharedPreferences;
+  final SharedPreferences _sharedPreferences;
 
-  CommunityLocalDataSourceImpl({required this.sharedPreferences});
+  CommunityLocalDataSourceImpl({required SharedPreferences sharedPreferences})
+      : _sharedPreferences = sharedPreferences;
 
-  static const _communitiesKey = 'CACHED_COMMUNITIES';
-  static const _eventsKeyPrefix = 'CACHED_EVENTS_';
-  static const _postsKeyPrefix = 'CACHED_POSTS_';
+  static const String _communitiesKey = 'cached_communities';
+  static const String _membersKeyPrefix = 'cached_members_';
+  static const String _userCommunityKeyPrefix = 'cached_user_community_';
 
   @override
   Future<List<CommunityModel>> getCachedCommunities() async {
     try {
-      final jsonString = sharedPreferences.getString(_communitiesKey);
-      if (jsonString != null) {
-        final List<dynamic> jsonList = json.decode(jsonString);
-        return jsonList
-            .map((item) => CommunityModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-      throw const CacheException('No cached communities found');
+      final jsonString = _sharedPreferences.getString(_communitiesKey);
+      if (jsonString == null) return [];
+
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList
+          .map((item) => CommunityModel.fromJson(item as Map<String, dynamic>))
+          .toList();
     } catch (e) {
-      throw const CacheException('Failed to parse cached communities');
+      return [];
     }
   }
 
   @override
   Future<void> cacheCommunities(List<CommunityModel> communities) async {
     try {
-      final jsonString = json.encode(communities.map((c) => c.toJson()).toList());
-      await sharedPreferences.setString(_communitiesKey, jsonString);
+      final jsonString =
+          json.encode(communities.map((c) => c.toJson()).toList());
+      await _sharedPreferences.setString(_communitiesKey, jsonString);
     } catch (e) {
-      throw const CacheException('Failed to cache communities');
+      // Ignore caching errors
     }
   }
 
   @override
-  Future<List<CommunityEventModel>> getCachedEvents(String communityId) async {
+  Future<void> clearCachedCommunities() async {
+    await _sharedPreferences.remove(_communitiesKey);
+  }
+
+  @override
+  Future<List<CommunityMemberModel>> getCachedMembers(
+      String communityId) async {
     try {
-      final jsonString = sharedPreferences.getString('$_eventsKeyPrefix$communityId');
-      if (jsonString != null) {
-        final List<dynamic> jsonList = json.decode(jsonString);
-        return jsonList
-            .map((item) => CommunityEventModel.fromJson(item as Map<String, dynamic>))
-            .toList();
+      final jsonString =
+          _sharedPreferences.getString('$_membersKeyPrefix$communityId');
+      if (jsonString == null) return [];
+
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList
+          .map((item) =>
+              CommunityMemberModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<void> cacheMembers(
+      String communityId, List<CommunityMemberModel> members) async {
+    try {
+      final jsonString = json.encode(members.map((m) => m.toJson()).toList());
+      await _sharedPreferences.setString(
+          '$_membersKeyPrefix$communityId', jsonString);
+    } catch (e) {
+      // Ignore caching errors
+    }
+  }
+
+  @override
+  Future<void> clearCachedMembers(String communityId) async {
+    await _sharedPreferences.remove('$_membersKeyPrefix$communityId');
+  }
+
+  @override
+  Future<CommunityModel?> getCachedUserCommunity(String userId) async {
+    try {
+      final jsonString =
+          _sharedPreferences.getString('$_userCommunityKeyPrefix$userId');
+      if (jsonString == null) return null;
+
+      final Map<String, dynamic> jsonMap = json.decode(jsonString);
+      return CommunityModel.fromJson(jsonMap);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> cacheUserCommunity(
+      String userId, CommunityModel? community) async {
+    try {
+      if (community == null) {
+        await _sharedPreferences.remove('$_userCommunityKeyPrefix$userId');
+      } else {
+        final jsonString = json.encode(community.toJson());
+        await _sharedPreferences.setString(
+            '$_userCommunityKeyPrefix$userId', jsonString);
       }
-      throw const CacheException('No cached events found');
     } catch (e) {
-      throw const CacheException('Failed to parse cached events');
+      // Ignore caching errors
     }
   }
 
   @override
-  Future<void> cacheEvents(String communityId, List<CommunityEventModel> events) async {
-    try {
-      final jsonString = json.encode(events.map((e) => e.toJson()).toList());
-      await sharedPreferences.setString('$_eventsKeyPrefix$communityId', jsonString);
-    } catch (e) {
-      throw const CacheException('Failed to cache events');
-    }
+  Future<void> clearCachedUserCommunity(String userId) async {
+    await _sharedPreferences.remove('$_userCommunityKeyPrefix$userId');
   }
-
-  @override
-  Future<List<CommunityPostModel>> getCachedPosts(String communityId) async {
-    try {
-      final jsonString = sharedPreferences.getString('$_postsKeyPrefix$communityId');
-      if (jsonString != null) {
-        final List<dynamic> jsonList = json.decode(jsonString);
-        return jsonList
-            .map((item) => CommunityPostModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-      throw const CacheException('No cached posts found');
-    } catch (e) {
-      throw const CacheException('Failed to parse cached posts');
-    }
-  }
-
-  @override
-  Future<void> cachePosts(String communityId, List<CommunityPostModel> posts) async {
-    try {
-      final jsonString = json.encode(posts.map((p) => p.toJson()).toList());
-      await sharedPreferences.setString('$_postsKeyPrefix$communityId', jsonString);
-    } catch (e) {
-      throw const CacheException('Failed to cache posts');
-    }
-  }
-
-  @override
-  Future<void> clearCache() async {
-    try {
-      final keys = sharedPreferences.getKeys();
-      for (final key in keys) {
-        if (key == _communitiesKey ||
-            key.startsWith(_eventsKeyPrefix) ||
-            key.startsWith(_postsKeyPrefix)) {
-          await sharedPreferences.remove(key);
-        }
-      }
-    } catch (e) {
-      throw const CacheException('Failed to clear cache');
-    }
-  }
-} 
+}

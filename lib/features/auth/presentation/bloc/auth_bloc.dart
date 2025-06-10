@@ -243,40 +243,31 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       await secureStorage.saveRegistrationDraft(updatedDraft);
 
-      // Now create the player account with Firebase
-      emit(const AuthLoading(message: 'Creating player account...'));
+      // Now trigger SMS verification with the community selected
+      emit(const AuthLoading(message: 'Sending SMS verification...'));
 
-      final result = await authRepository.registerPlayer(
+      final result = await authRepository.createPendingUserRegistration(
         fullName: updatedDraft.fullName,
         email: updatedDraft.email,
         phoneNumber: updatedDraft.phoneNumber,
         password: updatedDraft.password,
+        userType: updatedDraft.draftType,
         communityId: event.communityId,
         paymentId: paymentId,
       );
 
       result.fold(
         (failure) => emit(AuthError(failure.message)),
-        (user) {
-          logger.i('📧 Player registration created. Email verification sent.');
-
-          // Update draft with UID
-          final finalDraft = updatedDraft.copyWith(
-            uid: user.id,
-            step: 'auth_account_created',
-          );
-
-          secureStorage.saveRegistrationDraft(finalDraft);
-
-          emit(EmailVerificationSent(
-            email: updatedDraft.email,
-            uid: user.id,
+        (success) {
+          logger.i('✅ SMS verification sent for player with community');
+          // Use the new SmsVerificationSent state
+          emit(SmsVerificationSent(
+            phoneNumber: updatedDraft.phoneNumber,
+            fullName: updatedDraft.fullName,
+            userType: updatedDraft.draftType,
             message:
-                'We\'ve sent a verification link to ${updatedDraft.email}. Please check your email.',
+                'SMS verification code sent to ${updatedDraft.phoneNumber}! Please enter the 6-digit code to complete registration.',
           ));
-
-          // Start polling for email verification
-          add(StartEmailVerificationPollingEvent(uid: user.id));
         },
       );
     } catch (e) {
@@ -596,64 +587,59 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  /// Handle login event
+  /// Handle login event with IMMEDIATE navigation
   Future<void> _onLogin(LoginEvent event, Emitter<AuthState> emit) async {
-    emit(const AuthLoading(message: 'Logging in...'));
+    // Start with minimal loading message for better UX
+    emit(const AuthLoading(message: 'Signing in...'));
 
     try {
-      // FAST PATH: Check if user is already cached and tokens are valid
+      // PRIORITY: Check if user is already cached and tokens are valid for INSTANT login
       final cachedUserResult = await authRepository.getCurrentUser();
 
       bool shouldSkipFirebaseAuth = false;
       User? cachedUser;
 
       await cachedUserResult.fold(
-        (failure) {
-          // No cached user - proceed with normal login
-          logger.i('💨 No cached user found, proceeding with Firebase Auth');
+        (failure) async {
+          logger.i('❌ No cached user found, proceeding with fresh login');
         },
         (user) async {
           if (user != null) {
-            // Check if this is the same user trying to login
-            final loginEmail = event.email?.toLowerCase() ?? '';
-            final cachedEmail = user.email.toLowerCase();
+            // Check if this cached user matches the login request
+            final phoneMatches = user.phoneNumber == event.phoneNumber;
+            final emailMatches =
+                event.email != null && user.email == event.email;
 
-            if (loginEmail == cachedEmail ||
-                event.phoneNumber == user.phoneNumber) {
-              // Same user - check if tokens are still valid
-              final tokenValid = await authRepository.isTokenValid();
-              await tokenValid.fold(
-                (failure) {
-                  logger.i('🔄 Cached tokens invalid, re-authenticating');
-                },
-                (isValid) {
-                  if (isValid) {
-                    logger.i('⚡ Using cached authentication - instant login!');
-                    cachedUser = user;
-                    shouldSkipFirebaseAuth = true;
-                  }
-                },
-              );
+            if (phoneMatches || emailMatches) {
+              logger.i('🚀 INSTANT LOGIN: Cached user matches credentials');
+              cachedUser = user;
+              shouldSkipFirebaseAuth = true;
+            } else {
+              logger.i(
+                  '🔄 Cached user doesn\'t match, clearing cache and fresh login');
+              // Clear outdated cache for different user
+              await secureStorage.clearAll();
             }
           }
         },
       );
 
-      // If we have valid cached authentication, use it immediately
+      // INSTANT PATH: Use cached credentials if available
       if (shouldSkipFirebaseAuth && cachedUser != null) {
-        logger.i('🚀 Lightning-fast cached login for: ${cachedUser!.email}');
+        logger.i('🚀 INSTANT LOGIN: Cached authentication successful');
 
         // Check if player needs to complete payment
         if (cachedUser!.userType == 'player' &&
             cachedUser!.paymentStatus == false) {
-          logger.i('💳 Cached player login but payment is pending');
+          logger.i('💳 Instant cached player login but payment is pending');
           emit(PlayerPaymentRequired(
             user: cachedUser!,
             paymentDeadline: cachedUser!.createdAt.add(const Duration(days: 2)),
             paymentId: cachedUser!.playerPaymentId ?? '',
           ));
         } else {
-          // User is fully authenticated and can access home
+          // User is fully authenticated and can access home - INSTANT
+          logger.i('✅ INSTANT LOGIN: Navigating to home immediately');
           emit(AuthAuthenticated(user: cachedUser!, isAutoLogin: true));
         }
         return;
@@ -667,8 +653,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         password: event.password,
       );
 
-      result.fold(
-        (failure) => emit(AuthError(failure.message)),
+      await result.fold(
+        (failure) async {
+          logger.e('❌ Login failed: ${failure.message}');
+          emit(AuthError(failure.message));
+        },
         (user) async {
           logger.i('✅ Login successful: ${user.email}');
 
@@ -678,10 +667,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             logger.i('🧹 Registration draft cleared after successful login');
           } catch (e) {
             logger.w('⚠️ Failed to clear registration draft: $e');
+            // Don't fail login for this
           }
 
           // Save auth tokens for future fast logins
-          await _saveAuthTokensForUser(user);
+          try {
+            await _saveAuthTokensForUser(user);
+          } catch (e) {
+            logger.w('⚠️ Failed to save auth tokens: $e');
+            // Don't fail login for this
+          }
 
           // Check if player needs to complete payment
           if (user.userType == 'player' && user.paymentStatus == false) {
@@ -692,33 +687,35 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               paymentId: user.playerPaymentId ?? '',
             ));
           } else {
-            // User is fully authenticated and can access home
-            emit(AuthAuthenticated(user: user));
+            // User is fully authenticated and can access home - IMMEDIATE
+            logger.i('✅ LOGIN SUCCESS: Navigating to home immediately');
+            emit(AuthAuthenticated(user: user, isAutoLogin: false));
           }
         },
       );
     } catch (e) {
-      logger.e('🔥 Login failed: $e');
+      logger.e('🔥 Login failed with exception: $e');
       emit(AuthError('Login failed: ${e.toString()}'));
     }
   }
 
   /// Logout user
   Future<void> _onLogout(LogoutEvent event, Emitter<AuthState> emit) async {
-    emit(const AuthLoading(message: 'Signing out...'));
+    // Skip loading state for instant logout UX - user sees login screen immediately
 
     try {
-      // Sign out from Firebase
-      await firebaseAuth.signOut();
+      // Parallel execution for faster logout
+      await Future.wait([
+        firebaseAuth.signOut(),
+        secureStorage.clearAll(),
+      ]);
 
-      // Clear all local storage
-      await secureStorage.clearAll();
-
-      logger.i('👋 Logout successful');
+      logger.i('👋 Logout successful - instant navigation to login');
       emit(AuthUnauthenticated());
     } catch (e) {
       logger.e('🔥 Logout failed: $e');
-      emit(const AuthError('Failed to log out'));
+      // Even if logout fails, still navigate to login for better UX
+      emit(AuthUnauthenticated());
     }
   }
 
@@ -860,6 +857,34 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       logger.i('🚀 Creating pending registration for: ${event.email}');
 
+      // For players without community selection, save draft and go to community selection
+      if (event.userType == 'player' && event.communityId == null) {
+        logger.i('💡 Player registration without community - saving draft');
+
+        // Create a registration draft
+        final draft = RegistrationDraft(
+          fullName: event.fullName,
+          email: event.email,
+          phoneNumber: event.phoneNumber,
+          password: event.password,
+          draftType: event.userType,
+          communityId: null,
+          paymentId: null,
+          step: 'details_collected',
+          uid: null,
+          timestamp: DateTime.now(),
+        );
+
+        await secureStorage.saveRegistrationDraft(draft);
+
+        emit(RegistrationDraftSaved(
+          draft: draft,
+          message: 'Player registration started. Please select a community.',
+        ));
+        return;
+      }
+
+      // For fans or players with community already selected, proceed with SMS
       final result = await authRepository.createPendingUserRegistration(
         fullName: event.fullName,
         email: event.email,
@@ -873,13 +898,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       result.fold(
         (failure) => emit(AuthError(failure.message)),
         (success) {
-          logger.i('✅ Pending registration created successfully');
-          emit(PendingRegistrationCreated(
-            email: event.email,
+          logger.i('✅ SMS verification code sent successfully');
+          // Use the new SmsVerificationSent state for better UI control
+          emit(SmsVerificationSent(
+            phoneNumber: event.phoneNumber,
             fullName: event.fullName,
             userType: event.userType,
             message:
-                'SMS verification code sent to ${event.phoneNumber}! Please check your messages and enter the code to complete registration.',
+                'SMS verification code sent to ${event.phoneNumber}! Please enter the 6-digit code to complete registration.',
           ));
         },
       );
@@ -892,7 +918,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   /// Verify SMS code and complete registration
   Future<void> _onVerifySmsCode(
       VerifySmsCodeEvent event, Emitter<AuthState> emit) async {
-    emit(const AuthLoading(message: 'Verifying SMS code...'));
+    // Use the new verification in progress state
+    emit(SmsVerificationInProgress(
+      phoneNumber: event.phoneNumber,
+      verificationCode: event.verificationCode,
+    ));
 
     try {
       logger.i('🔍 Verifying SMS code for: ${event.phoneNumber}');
@@ -903,7 +933,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
 
       result.fold(
-        (failure) => emit(AuthError(failure.message)),
+        (failure) {
+          logger.w('❌ SMS verification failed: ${failure.message}');
+          // Use specific SMS verification failed state
+          emit(SmsVerificationFailed(
+            phoneNumber: event.phoneNumber,
+            error: failure.message,
+            canRetry: true,
+          ));
+        },
         (user) async {
           logger.i('🎉 Registration completed successfully for: ${user.email}');
 
@@ -958,7 +996,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           ));
 
           // Small delay to ensure UI shows the success message
-          await Future.delayed(const Duration(milliseconds: 100));
+          await Future.delayed(const Duration(milliseconds: 500));
 
           // Immediately follow with appropriate authenticated state for fast navigation
           if (user.userType == 'player' && user.paymentStatus == false) {
@@ -977,7 +1015,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     } catch (e) {
       logger.e('🔥 SMS verification failed: $e');
-      emit(AuthError('SMS verification failed: ${e.toString()}'));
+      // Use specific SMS verification failed state
+      emit(SmsVerificationFailed(
+        phoneNumber: event.phoneNumber,
+        error: 'SMS verification failed: ${e.toString()}',
+        canRetry: true,
+      ));
     }
   }
 
@@ -997,15 +1040,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         (failure) => emit(AuthError(failure.message)),
         (success) {
           logger.i('✅ SMS code resent successfully');
-          emit(SmsCodeResent(
+          // Use SmsVerificationSent state to maintain proper flow
+          emit(SmsVerificationSent(
             phoneNumber: event.phoneNumber,
-            message: 'New verification code sent successfully!',
+            fullName: '', // Will be handled by UI context
+            userType: '', // Will be handled by UI context
+            message:
+                'New verification code sent to ${event.phoneNumber}! Please enter the 6-digit code.',
           ));
         },
       );
     } catch (e) {
       logger.e('🔥 Failed to resend SMS code: $e');
-      emit(AuthError('Failed to resend SMS code: ${e.toString()}'));
+      emit(SmsVerificationFailed(
+        phoneNumber: event.phoneNumber,
+        error: 'Failed to resend SMS code: ${e.toString()}',
+        canRetry: true,
+      ));
     }
   }
 

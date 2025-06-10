@@ -1,134 +1,89 @@
 import 'package:equatable/equatable.dart';
-import 'trophy.dart';
 
-/// Enum representing community levels
-enum CommunityLevel {
-  /// No regional/national cups
-  local,
-  
-  /// Won regional cup
-  regional,
-  
-  /// Won national cup
-  national
-}
-
-/// Entity representing a pool billiards community
+/// Community entity representing a billiards community
 class Community extends Equatable {
   final String id;
   final String name;
-  final String? description;
-  final String location;
-  final String leaderId;
-  final CommunityLevel level;
-  final int totalPlayers;
-  final int points;
-  final int trophyCount;
-  final int followCount;
-  final List<String> playerIds;
-  final List<String> followerIds;
-  final List<Trophy> trophies;
+  final String description;
+  final String initials; // e.g., "EP", "KP"
   final String? logoUrl;
+
+  // Location (No GPS coordinates - just county and location)
+  final String location; // e.g., "Embakasi", "Downtown"
+  final String county; // e.g., "Nairobi", "Mombasa"
+
+  // Metrics & Status
+  final int memberCount; // Only for players who joined
+  final int followerCount; // For fans who follow
+  final List<String> followers; // List of user IDs who follow this community
   final DateTime createdAt;
-  final DateTime? lastActivityAt;
-  final String rankingTier;
-  final int memberCount;
-  final int communityPoints;
-  final int achievementCount;
-  final List<String>? achievements;
+  final DateTime lastActivityAt;
+
+  // Categorization
+  final List<String> tags; // ["Competitive", "Embakasi", "Weekly Events"]
+
+  // Admin & Management
+  final String adminUserId; // Only one admin per community
 
   const Community({
     required this.id,
     required this.name,
-    this.description,
-    required this.location,
-    required this.leaderId,
-    required this.level,
-    required this.totalPlayers,
-    required this.points,
-    required this.trophyCount,
-    required this.followCount,
-    required this.playerIds,
-    required this.followerIds,
-    required this.trophies,
-    required this.createdAt,
+    required this.description,
+    required this.initials,
     this.logoUrl,
-    this.lastActivityAt,
-    this.rankingTier = 'Intermediate',
-    this.memberCount = 0,
-    this.communityPoints = 0,
-    this.achievementCount = 0,
-    this.achievements,
+    required this.location,
+    required this.county,
+    required this.memberCount,
+    required this.followerCount,
+    this.followers = const [], // Default to empty list
+    required this.createdAt,
+    required this.lastActivityAt,
+    required this.tags,
+    required this.adminUserId,
   });
-
-  /// Check if a user is following this community
-  bool isFollowedBy(String userId) => followerIds.contains(userId);
-
-  /// Check if a user is a player in this community
-  bool hasPlayer(String userId) => playerIds.contains(userId);
-
-  /// Check if a user is the leader of this community
-  bool isLeader(String userId) => leaderId == userId;
-
-  /// Get admin ID (for backward compatibility)
-  String get adminId => leaderId;
-
-  /// Check if community has achievements
-  bool get hasAchievements => achievements != null && achievements!.isNotEmpty;
-
-  /// Get the highest trophy type won by this community
-  TrophyType? get highestTrophyType {
-    if (trophies.isEmpty) return null;
-    return trophies.map((t) => t.type).reduce((a, b) => a.index > b.index ? a : b);
-  }
 
   /// Create a copy of this community with some fields updated
   Community copyWith({
     String? id,
     String? name,
     String? description,
-    String? location,
-    String? leaderId,
-    CommunityLevel? level,
-    int? totalPlayers,
-    int? points,
-    int? trophyCount,
-    int? followCount,
-    List<String>? playerIds,
-    List<String>? followerIds,
-    List<Trophy>? trophies,
+    String? initials,
     String? logoUrl,
+    String? location,
+    String? county,
+    int? memberCount,
+    int? followerCount,
+    List<String>? followers,
     DateTime? createdAt,
     DateTime? lastActivityAt,
-    String? rankingTier,
-    int? memberCount,
-    int? communityPoints,
-    int? achievementCount,
-    List<String>? achievements,
+    List<String>? tags,
+    String? adminUserId,
   }) {
     return Community(
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
-      location: location ?? this.location,
-      leaderId: leaderId ?? this.leaderId,
-      level: level ?? this.level,
-      totalPlayers: totalPlayers ?? this.totalPlayers,
-      points: points ?? this.points,
-      trophyCount: trophyCount ?? this.trophyCount,
-      followCount: followCount ?? this.followCount,
-      playerIds: playerIds ?? this.playerIds,
-      followerIds: followerIds ?? this.followerIds,
-      trophies: trophies ?? this.trophies,
+      initials: initials ?? this.initials,
       logoUrl: logoUrl ?? this.logoUrl,
+      location: location ?? this.location,
+      county: county ?? this.county,
+      memberCount: memberCount ?? this.memberCount,
+      followerCount: followerCount ?? this.followerCount,
+      followers: followers ?? this.followers,
       createdAt: createdAt ?? this.createdAt,
       lastActivityAt: lastActivityAt ?? this.lastActivityAt,
-      rankingTier: rankingTier ?? this.rankingTier,
-      memberCount: memberCount ?? this.memberCount,
-      communityPoints: communityPoints ?? this.communityPoints,
-      achievementCount: achievementCount ?? this.achievementCount,
-      achievements: achievements ?? this.achievements,
+      tags: tags ?? this.tags,
+      adminUserId: adminUserId ?? this.adminUserId,
     );
+  }
+
+  // TODO: Follow functionality removed for version 1
+  // Will be re-implemented in version 2 with proper follow system
+
+  /// Check if a user is following this community
+  /// Always returns false since follow functionality is disabled
+  bool isFollowedBy(String userId) {
+    return false; // Follow functionality disabled
   }
 
   @override
@@ -136,23 +91,21 @@ class Community extends Equatable {
         id,
         name,
         description,
-        location,
-        leaderId,
-        level,
-        totalPlayers,
-        points,
-        trophyCount,
-        followCount,
-        playerIds,
-        followerIds,
-        trophies,
+        initials,
         logoUrl,
+        location,
+        county,
+        memberCount,
+        followerCount,
+        followers,
         createdAt,
         lastActivityAt,
-        rankingTier,
-        memberCount,
-        communityPoints,
-        achievementCount,
-        achievements,
+        tags,
+        adminUserId,
       ];
-} 
+
+  @override
+  String toString() {
+    return 'Community{id: $id, name: $name, location: $location, county: $county, memberCount: $memberCount, followerCount: $followerCount}';
+  }
+}

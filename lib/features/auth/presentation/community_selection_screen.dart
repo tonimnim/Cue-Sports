@@ -7,6 +7,7 @@ import 'bloc/auth_event.dart';
 import 'bloc/auth_state.dart';
 import '../../../widget/buttons/primary_button.dart';
 import '../../../widget/display/loading_indicator.dart';
+import '../../payment/domain/entities/payment.dart' as payment_entity;
 
 /// Screen for selecting a community after code verification
 class CommunitySelectionScreen extends StatefulWidget {
@@ -57,15 +58,26 @@ class _CommunitySelectionScreenState extends State<CommunitySelectionScreen> {
     }
 
     if (widget.isPlayer) {
-      // For player, proceed to payment
+      // For player, proceed to unified payment
       Navigator.of(context).pushNamed(
-        '/payment',
+        '/unified-payment',
         arguments: {
-          'paymentType': 'registration',
+          'paymentType': payment_entity.PaymentType.registration,
           'typeId': _selectedCommunityId ?? '',
           'userId': widget.userId ?? '',
           'amount': 500.0, // Registration fee
           'prefillPhoneNumber': widget.phoneNumber ?? '',
+          'metadata': {
+            'communityId': _selectedCommunityId,
+            'userType': 'player',
+          },
+          'onSuccess': () {
+            // Navigate to home after successful payment
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/home',
+              (route) => false,
+            );
+          },
         },
       );
     } else {
@@ -212,7 +224,9 @@ class _CommunitySelectionScreenState extends State<CommunitySelectionScreen> {
                       'Player registration requires a one-time payment of KSh 500.',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Theme.of(context).primaryColor.withValues(alpha: 26), // 0.1 * 255 ≈ 26
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 26), // 0.1 * 255 ≈ 26
                       ),
                       textAlign: TextAlign.center,
                     ),

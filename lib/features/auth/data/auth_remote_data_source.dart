@@ -118,12 +118,12 @@ abstract class AuthRemoteDataSource {
 
   /// Get refresh token
   Future<String?> getRefreshToken();
-  
+
   /// Check if a user with the given email already exists
   ///
   /// Returns true if the user exists, false otherwise
   Future<bool> checkIfUserExists(String email);
-  
+
   /// Get available communities
   ///
   /// Returns a list of communities from Firestore
@@ -183,31 +183,34 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       return userModel;
     } on firebase_auth.FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
-        logger.i('🔄 Firebase Auth account exists for $email, attempting recovery...');
-        
+        logger.i(
+            '🔄 Firebase Auth account exists for $email, attempting recovery...');
+
         try {
           // Try to sign in with the existing account
           final signInCredential = await _auth.signInWithEmailAndPassword(
             email: email,
             password: password,
           );
-          
+
           final user = signInCredential.user;
           if (user == null) {
             throw AuthException('Account recovery failed: User is null');
           }
-          
-          logger.i('✅ Successfully signed into existing Firebase Auth account: ${user.uid}');
-          
+
+          logger.i(
+              '✅ Successfully signed into existing Firebase Auth account: ${user.uid}');
+
           // Check if Firestore document exists
           final existingUserDoc = await firestore
               .collection(FirebaseCollections.users)
               .doc(user.uid)
               .get();
-          
+
           if (!existingUserDoc.exists) {
-            logger.i('📝 Creating missing Firestore document for orphaned account');
-            
+            logger.i(
+                '📝 Creating missing Firestore document for orphaned account');
+
             // Create the missing Firestore document
             final userModel = UserModel.newFanUser(
               id: user.uid,
@@ -216,17 +219,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
               phoneNumber: phoneNumber,
               isEmailVerified: true, // Email was already verified in our flow
             );
-            
+
             await firestore
                 .collection(FirebaseCollections.users)
                 .doc(user.uid)
                 .set(userModel.toJson());
-            
+
             logger.i('✅ Firestore document created for recovered account');
             return userModel;
           } else {
             logger.i('✅ Firestore document exists, updating user data');
-            
+
             // Update existing document with new data
             await firestore
                 .collection(FirebaseCollections.users)
@@ -237,33 +240,33 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
               'isEmailVerified': true,
               'lastLoginAt': DateTime.now().toIso8601String(),
             });
-            
+
             // Get updated user data
             final updatedDoc = await firestore
                 .collection(FirebaseCollections.users)
                 .doc(user.uid)
                 .get();
-            
+
             final userData = updatedDoc.data()!;
             userData['id'] = user.uid;
-            
+
             return UserModel.fromJson(userData);
           }
         } catch (signInError) {
           logger.e('🔥 Account recovery failed: $signInError');
-          
-          if (signInError is firebase_auth.FirebaseAuthException && 
+
+          if (signInError is firebase_auth.FirebaseAuthException &&
               signInError.code == 'wrong-password') {
             throw AuthException(
-              'This email is already registered with a different password. '
-              'Please try logging in instead.'
-            );
+                'This email is already registered with a different password. '
+                'Please try logging in instead.');
           }
-          
-          throw AuthException('Account recovery failed: ${signInError.toString()}');
+
+          throw AuthException(
+              'Account recovery failed: ${signInError.toString()}');
         }
       }
-      
+
       // Handle other Firebase Auth errors
       throw _handleFirebaseAuthException(e);
     } catch (e) {
@@ -318,31 +321,34 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       return userModel;
     } on firebase_auth.FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
-        logger.i('🔄 Firebase Auth account exists for $email, attempting recovery...');
-        
+        logger.i(
+            '🔄 Firebase Auth account exists for $email, attempting recovery...');
+
         try {
           // Try to sign in with the existing account
           final signInCredential = await _auth.signInWithEmailAndPassword(
             email: email,
             password: password,
           );
-          
+
           final user = signInCredential.user;
           if (user == null) {
             throw AuthException('Account recovery failed: User is null');
           }
-          
-          logger.i('✅ Successfully signed into existing Firebase Auth account: ${user.uid}');
-          
+
+          logger.i(
+              '✅ Successfully signed into existing Firebase Auth account: ${user.uid}');
+
           // Check if Firestore document exists
           final existingUserDoc = await firestore
               .collection(FirebaseCollections.users)
               .doc(user.uid)
               .get();
-          
+
           if (!existingUserDoc.exists) {
-            logger.i('📝 Creating missing Firestore document for orphaned player account');
-            
+            logger.i(
+                '📝 Creating missing Firestore document for orphaned player account');
+
             // Create the missing Firestore document
             final userModel = UserModel.newPlayerUser(
               id: user.uid,
@@ -353,20 +359,22 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
               paymentId: paymentId,
               isEmailVerified: true, // Email was already verified in our flow
             );
-            
+
             await firestore
                 .collection(FirebaseCollections.users)
                 .doc(user.uid)
                 .set(userModel.toJson());
-            
+
             // Notify community admin
             await _notifyCommunityAdmin(communityId, user.uid, fullName);
-            
-            logger.i('✅ Firestore document created for recovered player account');
+
+            logger
+                .i('✅ Firestore document created for recovered player account');
             return userModel;
           } else {
-            logger.i('✅ Firestore document exists, updating with new player data');
-            
+            logger.i(
+                '✅ Firestore document exists, updating with new player data');
+
             // Update existing document with new player data
             await firestore
                 .collection(FirebaseCollections.users)
@@ -377,38 +385,39 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
               'userType': 'player',
               'communityId': communityId,
               'playerPaymentId': paymentId,
-              'playerPaymentStatus': PaymentStatus.pending.toString().split('.').last,
+              'playerPaymentStatus':
+                  PaymentStatus.pending.toString().split('.').last,
               'paymentStatus': false, // Boolean payment status
               'isEmailVerified': true,
               'lastLoginAt': DateTime.now().toIso8601String(),
             });
-            
+
             // Get updated user data
             final updatedDoc = await firestore
                 .collection(FirebaseCollections.users)
                 .doc(user.uid)
                 .get();
-            
+
             final userData = updatedDoc.data()!;
             userData['id'] = user.uid;
-            
+
             return UserModel.fromJson(userData);
           }
         } catch (signInError) {
           logger.e('🔥 Account recovery failed: $signInError');
-          
-          if (signInError is firebase_auth.FirebaseAuthException && 
+
+          if (signInError is firebase_auth.FirebaseAuthException &&
               signInError.code == 'wrong-password') {
             throw AuthException(
-              'This email is already registered with a different password. '
-              'Please try logging in instead.'
-            );
+                'This email is already registered with a different password. '
+                'Please try logging in instead.');
           }
-          
-          throw AuthException('Account recovery failed: ${signInError.toString()}');
+
+          throw AuthException(
+              'Account recovery failed: ${signInError.toString()}');
         }
       }
-      
+
       // Handle other Firebase Auth errors
       throw _handleFirebaseAuthException(e);
     } catch (e) {
@@ -425,16 +434,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }) async {
     try {
       // Ensure at least one identifier is provided
-      if ((email == null || email.isEmpty) && (phoneNumber == null || phoneNumber.isEmpty)) {
+      if ((email == null || email.isEmpty) &&
+          (phoneNumber == null || phoneNumber.isEmpty)) {
         throw AuthException('Either email or phone number is required');
       }
-      
+
       if (password.isEmpty) {
         throw AuthException('Password is required');
       }
-      
+
       String loginEmail;
-      
+
       // Determine which login method to use
       if (email != null && email.isNotEmpty) {
         loginEmail = email.trim().toLowerCase();
@@ -447,28 +457,28 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
             .where('phoneNumber', isEqualTo: phoneNumber)
             .limit(1)
             .get();
-            
+
         if (querySnapshot.docs.isEmpty) {
           throw AuthException('No account found with this phone number');
         }
-        
+
         final userData = querySnapshot.docs.first.data();
         loginEmail = userData['email'] as String? ?? '';
-        
+
         if (loginEmail.isEmpty) {
           throw AuthException('No email associated with this account');
         }
-        
+
         logger.i('👤 Found email for phone number: $loginEmail');
       }
-      
+
       // Sign out first to ensure clean state
       try {
         await _auth.signOut();
       } catch (e) {
         // Ignore signout errors
       }
-      
+
       // Authenticate with Firebase
       final userCredential = await _auth.signInWithEmailAndPassword(
         email: loginEmail,
@@ -495,7 +505,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final userData = userDoc.data()!;
       userData['id'] = user.uid;
       userData['lastLoginAt'] = now.toIso8601String();
-      
+
       await firestore
           .collection(FirebaseCollections.users)
           .doc(user.uid)
@@ -507,9 +517,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         await tokenService.saveToken(idToken);
         logger.i('🔐 Firebase ID token saved');
       }
-      
+
       logger.i('✅ Login successful: ${user.email}');
-      
+
       return {
         'user': UserModel.fromJson(userData),
         'accessToken': idToken ?? '',
@@ -554,6 +564,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
 
       final userData = userDoc.data()!;
+      // CRITICAL FIX: Include the Firebase Auth UID as the user ID
+      userData['id'] = user.uid;
       return UserModel.fromJson(userData);
     } catch (e) {
       logger.e('🔥 Get current user error: $e');
@@ -771,7 +783,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<void> deleteUser(String userId) async {
     try {
       // Delete from Firestore
-      await firestore.collection(FirebaseCollections.users).doc(userId).delete();
+      await firestore
+          .collection(FirebaseCollections.users)
+          .doc(userId)
+          .delete();
 
       // Delete from Firebase Auth (only if it's the current user)
       final user = _auth.currentUser;
@@ -816,7 +831,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<List<dynamic>> getCommunities() async {
     try {
       logger.i('🔍 Fetching communities from Firestore');
-      
+
       // Build query with best practices
       final snapshot = await firestore
           .collection(FirebaseCollections.communities)
@@ -824,13 +839,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           .orderBy('name')
           .limit(20) // Set a reasonable limit
           .get();
-      
+
       // Map to proper structured data with timestamp handling
       final communities = snapshot.docs.map((doc) {
         final data = doc.data();
         final timestamp = data['createdAt'];
         final DateTime createdAt;
-        
+
         // Handle different timestamp formats properly
         if (timestamp is Timestamp) {
           createdAt = timestamp.toDate();
@@ -839,7 +854,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         } else {
           createdAt = DateTime.now();
         }
-        
+
         // Return a properly structured map
         return {
           'id': doc.id,
@@ -851,7 +866,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           'isActive': data['isActive'] ?? true,
         };
       }).toList();
-      
+
       logger.i('✅ Fetched ${communities.length} communities');
       return communities;
     } catch (e) {

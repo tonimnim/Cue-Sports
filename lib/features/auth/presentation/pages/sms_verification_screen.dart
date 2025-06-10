@@ -121,7 +121,31 @@ class _SmsVerificationScreenState extends State<SmsVerificationScreen> {
           _verificationTimeout?.cancel();
           setState(() => _isLoading = false);
 
-          if (state is AuthError) {
+          if (state is SmsVerificationInProgress) {
+            // Keep loading state for verification in progress
+            setState(() => _isLoading = true);
+            _startVerificationTimeout(); // Restart timeout protection
+          } else if (state is SmsVerificationFailed) {
+            // Handle SMS verification failure
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.error),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          } else if (state is SmsVerificationSent) {
+            // Handle SMS code resent
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          } else if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -190,15 +214,6 @@ class _SmsVerificationScreenState extends State<SmsVerificationScreen> {
                 'paymentId': state.paymentId,
                 'paymentDeadline': state.paymentDeadline,
               },
-            );
-          } else if (state is SmsCodeResent) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Verification code resent successfully!'),
-                backgroundColor: Colors.green,
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 2),
-              ),
             );
           }
         },

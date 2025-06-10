@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class UpgradePromotionCard extends StatelessWidget {
   final VoidCallback onUpgradeTap;
-  
+
   const UpgradePromotionCard({
     Key? key,
     required this.onUpgradeTap,
@@ -65,9 +66,11 @@ class UpgradePromotionCard extends StatelessWidget {
                   GestureDetector(
                     onTap: onUpgradeTap,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF9D61D).withValues(alpha: 51), // 0.2 * 255 ≈ 51
+                        color: const Color(0xFFF9D61D)
+                            .withValues(alpha: 51), // 0.2 * 255 ≈ 51
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Text(
@@ -88,8 +91,8 @@ class UpgradePromotionCard extends StatelessWidget {
           Container(
             width: 120,
             padding: const EdgeInsets.all(12),
-            child: Image.asset(
-              'assets/images/logo.png', // Using the logo since pool_balls.png doesn't exist
+            child: SvgPicture.asset(
+              'assets/images/BILLIARD POOL.svg', // Using the SVG logo
               fit: BoxFit.contain,
             ),
           ),
@@ -97,4 +100,4 @@ class UpgradePromotionCard extends StatelessWidget {
       ),
     );
   }
-} 
+}

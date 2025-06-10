@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pool_billiard_app/features/shop/models/product.dart';
+import 'package:pool_billiard_app/core/config/theme.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -14,7 +15,21 @@ class ProductCard extends StatelessWidget {
   }) : super(key: key);
   
   // Helper method to build the product image
-  Widget _buildProductImage(String imageUrl) {
+  Widget _buildProductImage(BuildContext context, String imageUrl) {
+    // Provide a placeholder for missing or invalid URLs
+    if (imageUrl.isEmpty || imageUrl.contains('via.placeholder.com')) {
+      return Container(
+        color: AppTheme.primaryColor,
+        child: Center(
+          child: Icon(
+            Icons.image,
+            size: 50,
+            color: Colors.white70,
+          ),
+        ),
+      );
+    }
+    
     // Check if the image URL is a network image or an asset
     if (imageUrl.startsWith('http')) {
       // For network images
@@ -26,12 +41,12 @@ class ProductCard extends StatelessWidget {
         errorBuilder: (context, error, stackTrace) {
           // Return a placeholder if the image fails to load
           return Container(
-            color: Colors.grey[300],
-            child: const Center(
+            color: AppTheme.primaryColor,
+            child: Center(
               child: Icon(
                 Icons.broken_image,
                 size: 50,
-                color: Colors.grey,
+                color: Colors.white70,
               ),
             ),
           );
@@ -58,12 +73,12 @@ class ProductCard extends StatelessWidget {
         errorBuilder: (context, error, stackTrace) {
           // Return a placeholder if the asset image fails to load
           return Container(
-            color: Colors.grey[300],
-            child: const Center(
+            color: Colors.grey[200],
+            child: Center(
               child: Icon(
                 Icons.broken_image,
                 size: 50,
-                color: Colors.grey,
+                color: Colors.grey[400],
               ),
             ),
           );
@@ -79,10 +94,10 @@ class ProductCard extends StatelessWidget {
       width: isGridItem ? null : 170,
       margin: EdgeInsets.only(right: isGridItem ? 0 : 16, bottom: isGridItem ? 20 : 0),
       decoration: BoxDecoration(
-        // Use white background for the card
-        color: Theme.of(context).colorScheme.surface, // Using surface color (white)
+        // Use primary color for the card background
+        color: AppTheme.primaryColor, // Primary color background as requested
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2), width: 1),
+        // Removed border line as requested
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
@@ -102,14 +117,8 @@ class ProductCard extends StatelessWidget {
                 height: 140,
                 width: double.infinity,
                 margin: const EdgeInsets.fromLTRB(10.0, 10.0, 10.0, 0.0),
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(2),
-                    topRight: Radius.circular(2),
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: _buildProductImage(product.imageUrl),
+                color: AppTheme.primaryColor, // Added primaryColor background to match the card
+                child: _buildProductImage(context, product.imageUrl),
               ),
             ],
           ),
@@ -125,7 +134,7 @@ class ProductCard extends StatelessWidget {
                     children: List.generate(5, (index) {
                       return Icon(
                         Icons.star,
-                        color: const Color(0xFFFFC727), // All stars filled yellow
+                        color: AppTheme.warningColor, // Use theme warning color for stars
                         size: 16,
                       );
                     }),
@@ -134,19 +143,19 @@ class ProductCard extends StatelessWidget {
                 ],
                 Text(
                   product.name,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurface, // Dark text for white background
+                    color: Colors.white, // White text for contrast on primary color
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   product.description.isEmpty ? 'Premium quality product' : product.description,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // Light dark text for white background
+                    color: Colors.white70, // Light white color for good visibility on primary color
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -160,18 +169,18 @@ class ProductCard extends StatelessWidget {
                       children: [
                         Text(
                           'KES ',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Colors.white, // White text for price
                           ),
                         ),
                         Text(
                           '${product.price.toStringAsFixed(2)}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Colors.white, // White text for price
                           ),
                         ),
                       ],
@@ -188,8 +197,8 @@ class ProductCard extends StatelessWidget {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.secondary,
-                        foregroundColor: Colors.black,
+                        backgroundColor: AppTheme.secondaryColor, // Use yellowish secondary color
+                        foregroundColor: Colors.black, // Black text on gold background
                         minimumSize: const Size(40, 30),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         shape: RoundedRectangleBorder(

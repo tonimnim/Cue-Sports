@@ -9,14 +9,15 @@ import '../community_repository.dart';
 /// Use case for getting communities by location
 ///
 /// This is used when players want to find communities in a specific area
-class GetCommunitiesByLocationUseCase implements UseCase<List<Community>, LocationParams> {
+class GetCommunitiesByLocationUseCase
+    implements UseCase<List<Community>, LocationParams> {
   final CommunityRepository repository;
 
   GetCommunitiesByLocationUseCase(this.repository);
 
   @override
   Future<Either<Failure, List<Community>>> call(LocationParams params) async {
-    return await repository.getCommunityByLocation(params.location);
+    return await repository.getCommunitiesByLocation(params.location);
   }
 }
 

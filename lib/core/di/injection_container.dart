@@ -41,7 +41,6 @@ import '../../features/community/data/datasources/firebase_community_remote_data
 import '../../features/community/data/datasources/community_local_data_source.dart';
 
 // Community use cases
-import '../../features/community/domain/use_cases/create_community_use_case.dart';
 import '../../features/community/domain/use_cases/get_communities_use_case.dart';
 import '../../features/community/domain/use_cases/get_community_details_use_case.dart';
 import '../../features/community/domain/use_cases/get_user_community_use_case.dart';
@@ -50,12 +49,7 @@ import '../../features/community/domain/use_cases/check_community_membership_use
 import '../../features/community/domain/use_cases/get_communities_by_location_use_case.dart';
 import '../../features/community/domain/use_cases/get_top_ranked_communities_use_case.dart';
 import '../../features/community/domain/use_cases/search_communities_use_case.dart';
-import '../../features/community/domain/use_cases/update_community_use_case.dart';
 import '../../features/community/domain/use_cases/leave_community_use_case.dart';
-import '../../features/community/domain/use_cases/get_community_events_use_case.dart';
-import '../../features/community/domain/use_cases/get_community_posts_use_case.dart';
-import '../../features/community/domain/use_cases/register_for_event_use_case.dart';
-import '../../features/community/domain/use_cases/unregister_from_event_use_case.dart';
 
 // Shop feature imports
 import '../../features/shop/domain/repositories/shop_repository.dart';
@@ -74,7 +68,6 @@ import '../../features/shop/domain/entities/shop_order.dart';
 import '../../features/tournaments/domain/repositories/tournament_repository.dart';
 import '../../features/tournaments/data/repositories/tournament_repository_impl.dart';
 import '../../features/tournaments/data/datasources/tournament_remote_datasource.dart';
-import '../../features/tournaments/domain/usecases/tournament_usecases.dart';
 import '../../features/tournaments/presentation/bloc/tournament_bloc.dart';
 
 // Community bloc
@@ -252,9 +245,7 @@ Future<void> init() async {
     ),
   );
 
-  // Use cases
-  sl.registerLazySingleton(
-      () => CreateCommunityUseCase(sl<CommunityRepository>()));
+  // Use cases - only keeping the ones that might be used elsewhere
   sl.registerLazySingleton(
       () => GetCommunitiesUseCase(sl<CommunityRepository>()));
   sl.registerLazySingleton(
@@ -266,42 +257,12 @@ Future<void> init() async {
   sl.registerLazySingleton(
       () => CheckCommunityMembershipUseCase(sl<CommunityRepository>()));
   sl.registerLazySingleton(
-      () => GetCommunitiesByLocationUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(
-      () => GetTopRankedCommunitiesUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(
       () => SearchCommunitiesUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(
-      () => UpdateCommunityUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(
-      () => LeaveCommunityUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(
-      () => GetCommunityEventsUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(
-      () => GetCommunityPostsUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(
-      () => RegisterForEventUseCase(sl<CommunityRepository>()));
-  sl.registerLazySingleton(
-      () => UnregisterFromEventUseCase(sl<CommunityRepository>()));
 
   // BLoCs - Community
   sl.registerFactory(
     () => CommunityBloc(
       repository: sl<CommunityRepository>(),
-      logger: sl<LoggerService>(),
-      getCommunitiesUseCase: sl<GetCommunitiesUseCase>(),
-      getCommunityDetailsUseCase: sl<GetCommunityDetailsUseCase>(),
-      getUserCommunityUseCase: sl<GetUserCommunityUseCase>(),
-      joinCommunityUseCase: sl<JoinCommunityUseCase>(),
-      checkMembershipUseCase: sl<CheckCommunityMembershipUseCase>(),
-      getCommunitiesByLocationUseCase: sl<GetCommunitiesByLocationUseCase>(),
-      getTopRankedCommunitiesUseCase: sl<GetTopRankedCommunitiesUseCase>(),
-      searchCommunitiesUseCase: sl<SearchCommunitiesUseCase>(),
-      getCommunityEventsUseCase: sl<GetCommunityEventsUseCase>(),
-      getCommunityPostsUseCase: sl<GetCommunityPostsUseCase>(),
-      leaveCommunityUseCase: sl<LeaveCommunityUseCase>(),
-      registerForEventUseCase: sl<RegisterForEventUseCase>(),
-      unregisterFromEventUseCase: sl<UnregisterFromEventUseCase>(),
     ),
   );
 
@@ -365,32 +326,25 @@ Future<void> init() async {
 
   // Data sources
   sl.registerLazySingleton<TournamentRemoteDataSource>(
-    () => TournamentRemoteDataSourceImpl(sl<FirebaseServices>()),
+    () => FirebaseTournamentRemoteDataSource(
+      firestore: sl<FirebaseFirestore>(),
+      auth: sl<FirebaseAuth>(),
+    ),
   );
 
   // Repository
   sl.registerLazySingleton<TournamentRepository>(
     () => TournamentRepositoryImpl(
-        remoteDataSource: sl<TournamentRemoteDataSource>()),
+      remoteDataSource: sl<TournamentRemoteDataSource>(),
+      networkInfo: sl<NetworkInfo>(),
+      logger: sl<LoggerService>(),
+    ),
   );
-
-  // Use cases
-  sl.registerLazySingleton(
-      () => GetTournamentsUseCase(sl<TournamentRepository>()));
-  sl.registerLazySingleton(
-      () => GetFeaturedTournamentsUseCase(sl<TournamentRepository>()));
-  sl.registerLazySingleton(
-      () => GetUpcomingTournamentsUseCase(sl<TournamentRepository>()));
-  sl.registerLazySingleton(
-      () => GetTournamentsByStatusUseCase(sl<TournamentRepository>()));
-  sl.registerLazySingleton(
-      () => GetTournamentByIdUseCase(sl<TournamentRepository>()));
 
   // BLoCs - Tournament
   sl.registerFactory(() => TournamentBloc(
-        getTournamentsUseCase: sl<GetTournamentsUseCase>(),
-        getFeaturedTournamentsUseCase: sl<GetFeaturedTournamentsUseCase>(),
-        getUpcomingTournamentsUseCase: sl<GetUpcomingTournamentsUseCase>(),
+        repository: sl<TournamentRepository>(),
+        logger: sl<LoggerService>(),
       ));
 
   // ======== PAYMENT FEATURE ========

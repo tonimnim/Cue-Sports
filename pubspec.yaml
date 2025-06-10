@@ -51,6 +51,7 @@ dependencies:
   google_fonts: ^6.1.0
   intl: ^0.18.0
   timeago: ^3.4.0
+  flutter_svg: ^2.0.9
 
   # Other Firebase services
 #   firebase_storage: ^11.5.0
@@ -116,4 +117,4 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
   assets:
-    - assets/images/logo.png
+    - assets/images/BILLIARD POOL.svg
