@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import '../presentation/bloc/payment_bloc.dart';
 import '../services/tinypesa_service.dart';
+import '../../shop/presentation/bloc/shop_bloc.dart';
 
 /// Register payment dependencies
 void injectPaymentDependencies(GetIt sl) {
@@ -18,6 +19,7 @@ void injectPaymentDependencies(GetIt sl) {
   sl.registerFactory(
     () => PaymentBloc(
       tinyPesaService: sl<TinyPesaService>(),
+      shopBloc: sl<ShopBloc>(),
     ),
   );
 }

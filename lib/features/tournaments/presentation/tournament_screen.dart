@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/di/injection_container.dart' as di;
+import '../../../core/usecases/usecase.dart';
 import '../domain/entities/tournament.dart';
 import '../domain/entities/match.dart';
 import 'bloc/tournament_bloc.dart';
@@ -11,6 +12,8 @@ import 'bloc/tournament_state.dart';
 import 'widgets/tournament_card.dart';
 import 'widgets/live_tournament_card.dart';
 import '../../payment/domain/entities/payment.dart' as payment_entity;
+import '../../auth/domain/get_current_user_use_case.dart';
+import '../../auth/domain/entities/user.dart' as app_user;
 
 class TournamentScreen extends StatefulWidget {
   const TournamentScreen({Key? key}) : super(key: key);
@@ -20,18 +23,70 @@ class TournamentScreen extends StatefulWidget {
 }
 
 class _TournamentScreenState extends State<TournamentScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
   late TournamentBloc _tournamentBloc;
+  late GetCurrentUserUseCase _getCurrentUserUseCase;
+  bool _isInitialized = false;
+  app_user.User? _currentUser;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    _tournamentBloc = di.sl<TournamentBloc>();
+    // Dynamic tab count based on user type (will be updated in didChangeDependencies)
+    _tabController = TabController(length: 3, vsync: this);
+  }
 
-    // Initialize data loading
-    _loadAllData();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      _tournamentBloc = context.read<TournamentBloc>();
+      _getCurrentUserUseCase = di.sl<GetCurrentUserUseCase>();
+      _isInitialized = true;
+      
+      // Load current user and tournament data
+      _loadCurrentUser();
+      _loadAllData();
+    }
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final userResult = await _getCurrentUserUseCase(NoParams());
+    userResult.fold(
+      (failure) {
+        print('❌ Failed to get current user: ${failure.message}');
+      },
+      (user) {
+        if (mounted) {
+          setState(() {
+            _currentUser = user;
+            // Update tab controller based on user type
+            _updateTabController();
+          });
+        }
+      },
+    );
+  }
+
+  void _updateTabController() {
+    final newLength = _getTabCount();
+    if (_tabController.length != newLength) {
+      final oldController = _tabController;
+      _tabController = TabController(length: newLength, vsync: this);
+      // Dispose the old controller after the frame to avoid issues
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        oldController.dispose();
+      });
+    }
+  }
+
+  int _getTabCount() {
+    if (_currentUser?.isPlayer == true) {
+      return 4; // All, Live, Upcoming, Registered
+    } else {
+      return 3; // All, Live, Upcoming (for fans and non-authenticated)
+    }
   }
 
   void _loadAllData() {
@@ -40,11 +95,10 @@ class _TournamentScreenState extends State<TournamentScreen>
     // Load ALL tournaments first
     _tournamentBloc.add(const LoadTournamentsEvent());
 
-    // Load specific tournament categories
-    _tournamentBloc.add(const LoadFeaturedTournamentsEvent());
+    // Load active tournaments
     _tournamentBloc.add(const LoadActiveTournamentsEvent());
 
-    // Load live matches
+    // Load live matches (only live matches, not featured tournaments)
     _tournamentBloc.add(const LoadLiveMatchesEvent());
   }
 
@@ -56,9 +110,7 @@ class _TournamentScreenState extends State<TournamentScreen>
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _tournamentBloc,
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
           title: const Text(
@@ -136,17 +188,17 @@ class _TournamentScreenState extends State<TournamentScreen>
             }
           },
           builder: (context, state) {
+            // Ensure tab controller matches the current tab count
+            if (_tabController.length != _getTabCount()) {
+              _updateTabController();
+            }
+            
             return Column(
               children: [
                 // Tab bar
                 TabBar(
                   controller: _tabController,
-                  tabs: const [
-                    Tab(text: 'All'),
-                    Tab(text: 'Featured'),
-                    Tab(text: 'Live'),
-                    Tab(text: 'Upcoming'),
-                  ],
+                  tabs: _buildTabs(),
                   labelColor: AppTheme.accentColor,
                   unselectedLabelColor: Colors.white70,
                   indicatorColor: AppTheme.accentColor,
@@ -155,25 +207,53 @@ class _TournamentScreenState extends State<TournamentScreen>
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
-                    children: [
-                      _buildAllTournamentsTab(state),
-                      _buildFeaturedTab(state),
-                      _buildLiveTab(state),
-                      _buildUpcomingTab(state),
-                    ],
+                    children: _buildTabViews(state),
                   ),
                 ),
               ],
             );
           },
         ),
-      ),
     );
   }
 
   void _refreshData() {
     print('🔄 TOURNAMENT SCREEN: Refreshing all data...');
     _loadAllData();
+  }
+
+  List<Tab> _buildTabs() {
+    if (_currentUser?.isPlayer == true) {
+      return const [
+        Tab(text: 'All'),
+        Tab(text: 'Live'),
+        Tab(text: 'Upcoming'),
+        Tab(text: 'Registered'),
+      ];
+    } else {
+      return const [
+        Tab(text: 'All'),
+        Tab(text: 'Live'),
+        Tab(text: 'Upcoming'),
+      ];
+    }
+  }
+
+  List<Widget> _buildTabViews(TournamentState state) {
+    if (_currentUser?.isPlayer == true) {
+      return [
+        _buildAllTournamentsTab(state),
+        _buildLiveTab(state),
+        _buildUpcomingTab(state),
+        _buildRegisteredTab(state),
+      ];
+    } else {
+      return [
+        _buildAllTournamentsTab(state),
+        _buildLiveTab(state),
+        _buildUpcomingTab(state),
+      ];
+    }
   }
 
   Widget _buildAllTournamentsTab(TournamentState state) {
@@ -325,14 +405,15 @@ class _TournamentScreenState extends State<TournamentScreen>
               // Display ALL tournaments from Firebase with proper constraints
               Column(
                 children: state.tournaments.map((tournament) {
-                  final isFeatured = tournament.isFeatured ||
-                      tournament.type == TournamentType.national;
+                  // Only national tournaments are featured
+                  final isFeatured = tournament.type == TournamentType.national;
                   return Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 16),
                     child: TournamentCard(
                       tournament: tournament,
                       isFeatured: isFeatured,
+                      currentUser: _currentUser,
                       onTap: () => _navigateToTournamentDetails(tournament),
                       onRegister: () =>
                           _handleTournamentRegistration(tournament),
@@ -393,35 +474,40 @@ class _TournamentScreenState extends State<TournamentScreen>
     );
   }
 
-  Widget _buildFeaturedTab(TournamentState state) {
+  Widget _buildRegisteredTab(TournamentState state) {
+    if (_currentUser == null) {
+      return _buildEmptyState('Please log in to view registered tournaments');
+    }
+
+    // Filter tournaments where user is registered
+    final registeredTournaments = state.tournaments
+        .where((tournament) => _currentUser != null && tournament.isUserRegistered(_currentUser!.id))
+        .toList();
+
     return RefreshIndicator(
       onRefresh: () async {
-        context
-            .read<TournamentBloc>()
-            .add(const LoadFeaturedTournamentsEvent());
+        context.read<TournamentBloc>().add(const LoadTournamentsEvent());
       },
-      child: state.isLoadingTournaments
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.accentColor))
-          : state.featuredTournaments.isEmpty
-              ? _buildEmptyState('No featured tournaments at the moment')
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: state.featuredTournaments.length,
-                  itemBuilder: (context, index) {
-                    final tournament = state.featuredTournaments[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: TournamentCard(
-                        tournament: tournament,
-                        isFeatured: true,
-                        onTap: () => _navigateToTournamentDetails(tournament),
-                        onRegister: () =>
-                            _handleTournamentRegistration(tournament),
-                      ),
-                    );
-                  },
-                ),
+      child: registeredTournaments.isEmpty
+          ? _buildEmptyState('You are not registered for any tournaments yet')
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: registeredTournaments.length,
+              itemBuilder: (context, index) {
+                final tournament = registeredTournaments[index];
+                final isFeatured = tournament.type == TournamentType.national;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: TournamentCard(
+                    tournament: tournament,
+                    isFeatured: isFeatured,
+                    currentUser: _currentUser,
+                    onTap: () => _navigateToTournamentDetails(tournament),
+                    onRegister: () => _handleTournamentRegistration(tournament),
+                  ),
+                );
+              },
+            ),
     );
   }
 
@@ -442,7 +528,7 @@ class _TournamentScreenState extends State<TournamentScreen>
                     final match = state.liveMatches[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
-                      child: LiveTournamentCard(
+                      child: LiveMatchCard(
                         match: match,
                         onTap: () => _navigateToMatchDetails(match),
                         onViewLive: () => _openLiveStream(match),
@@ -481,6 +567,7 @@ class _TournamentScreenState extends State<TournamentScreen>
                   padding: const EdgeInsets.only(bottom: 16),
                   child: TournamentCard(
                     tournament: tournament,
+                    currentUser: _currentUser,
                     onTap: () => _navigateToTournamentDetails(tournament),
                     onRegister: () => _handleTournamentRegistration(tournament),
                   ),

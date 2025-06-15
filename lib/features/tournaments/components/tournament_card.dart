@@ -68,7 +68,7 @@ class TournamentCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  price != null ? '$type (\$${price!.toStringAsFixed(2)})' : type,
+                  price != null ? '$type (\$${price.toStringAsFixed(2)})' : type,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSecondary,
                     fontSize: 14,
@@ -316,7 +316,7 @@ class TournamentCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '\$${price!.toStringAsFixed(2)}',
+                      '\$${price.toStringAsFixed(2)}',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onPrimary,
                         fontWeight: FontWeight.bold,

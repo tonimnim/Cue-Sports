@@ -14,6 +14,7 @@ import 'presentation/bloc/shop_event.dart';
 import 'presentation/bloc/shop_state.dart';
 import 'domain/entities/cart_item.dart';
 import 'payment/payment_page.dart';
+import '../../firebase/firebase_services.dart';
 
 /// BLoC-based cart screen - completely replaced Provider with BLoC
 class CartScreen extends StatelessWidget {
@@ -22,8 +23,8 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) =>
-          di.sl<ShopBloc>()..add(LoadCartItemsEvent('current_user')),
+      create: (context) => 
+          di.sl<ShopBloc>()..add(LoadCartItemsEvent(di.sl<FirebaseServices>().currentUser?.uid ?? '')),
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
@@ -70,7 +71,7 @@ class CartScreen extends StatelessWidget {
                         onPressed: () {
                           context
                               .read<ShopBloc>()
-                              .add(LoadCartItemsEvent('current_user'));
+                              .add(LoadCartItemsEvent(di.sl<FirebaseServices>().currentUser?.uid ?? ''));
                         },
                         child: const Text('Retry'),
                       ),
@@ -301,7 +302,7 @@ class CartScreen extends StatelessWidget {
                 onPressed: () {
                   if (item.quantity > 1) {
                     context.read<ShopBloc>().add(UpdateCartItemQuantityEvent(
-                        'current_user', item.id, item.quantity - 1));
+                        di.sl<FirebaseServices>().currentUser?.uid ?? '', item.id, item.quantity - 1));
                   } else {
                     _showRemoveItemDialog(context, item.id);
                   }
@@ -325,7 +326,7 @@ class CartScreen extends StatelessWidget {
                     const Icon(Icons.add_circle_outline, color: Colors.white70),
                 onPressed: () {
                   context.read<ShopBloc>().add(UpdateCartItemQuantityEvent(
-                      'current_user', item.id, item.quantity + 1));
+                      di.sl<FirebaseServices>().currentUser?.uid ?? '', item.id, item.quantity + 1));
                 },
               ),
             ],
@@ -355,7 +356,7 @@ class CartScreen extends StatelessWidget {
             onPressed: () {
               context
                   .read<ShopBloc>()
-                  .add(RemoveFromCartEvent('current_user', itemId));
+                  .add(RemoveFromCartEvent(di.sl<FirebaseServices>().currentUser?.uid ?? '', itemId));
               Navigator.of(context).pop();
             },
             child: Text('Remove',
@@ -385,7 +386,7 @@ class CartScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              context.read<ShopBloc>().add(ClearCartEvent('current_user'));
+              context.read<ShopBloc>().add(ClearCartEvent(di.sl<FirebaseServices>().currentUser?.uid ?? ''));
               Navigator.of(context).pop();
             },
             child: Text('Clear',
@@ -439,7 +440,7 @@ class CartScreen extends StatelessWidget {
     ).then((result) {
       if (result == true && context.mounted) {
         // Payment successful, clear cart
-        context.read<ShopBloc>().add(ClearCartEvent('current_user'));
+        context.read<ShopBloc>().add(ClearCartEvent(di.sl<FirebaseServices>().currentUser?.uid ?? ''));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content:

@@ -16,8 +16,8 @@ class ProductCard extends StatelessWidget {
   
   // Helper method to build the product image
   Widget _buildProductImage(BuildContext context, String imageUrl) {
-    // Provide a placeholder for missing or invalid URLs
-    if (imageUrl.isEmpty || imageUrl.contains('via.placeholder.com')) {
+    // Provide a placeholder for missing, invalid, or placeholder URLs
+    if (imageUrl.isEmpty || imageUrl.contains('via.placeholder.com') || imageUrl.contains('placeholder')) {
       return Container(
         color: Colors.grey[200],
         child: Center(

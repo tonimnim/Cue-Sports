@@ -218,7 +218,7 @@ class _TopShootersListState extends State<TopShootersList> {
       case 1:
         return Colors.amber; // Gold
       case 2:
-        return Colors.grey[400]!; // Silver
+        return Colors.grey[400] ?? Colors.grey; // Silver
       case 3:
         return Colors.brown; // Bronze
       default:

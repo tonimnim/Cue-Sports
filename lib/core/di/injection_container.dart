@@ -82,6 +82,10 @@ import '../../features/payment/di/payment_injection.dart';
 // SMS Service
 import '../../core/services/sms_service.dart';
 
+// Home feature
+import '../../main_screen/home/data/home_data_source.dart';
+import '../../main_screen/home/services/home_service.dart';
+
 // Service locator
 final sl = GetIt.instance;
 
@@ -151,6 +155,22 @@ Future<void> init() async {
   // Ranking Service
   sl.registerLazySingleton<RankingService>(
     () => RankingService(logger: sl<LoggerService>()),
+  );
+
+  // ======== HOME FEATURE ========
+  
+  // Home data source
+  sl.registerLazySingleton<HomeDataSource>(
+    () => HomeDataSourceImpl(
+      tournamentDataSource: sl<TournamentRemoteDataSource>(),
+      communityDataSource: sl<CommunityLocalDataSource>(),
+      firestore: sl<FirebaseFirestore>(),
+    ),
+  );
+
+  // Home service
+  sl.registerLazySingleton<HomeService>(
+    () => HomeService(dataSource: sl<HomeDataSource>()),
   );
 
   // ======== AUTH FEATURE ========

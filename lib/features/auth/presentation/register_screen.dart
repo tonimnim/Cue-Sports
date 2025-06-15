@@ -52,7 +52,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _handleRegistration() {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState?.validate() != true) return;
 
     final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim();
@@ -320,9 +320,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 groupValue: _isPlayer,
                 activeColor: AppTheme.accentColor,
                 onChanged: (value) {
-                  setState(() {
-                    _isPlayer = value!;
-                  });
+                  if (value != null) {
+                    setState(() {
+                      _isPlayer = value;
+                    });
+                  }
                 },
               ),
             ),
@@ -338,9 +340,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 groupValue: _isPlayer,
                 activeColor: AppTheme.accentColor,
                 onChanged: (value) {
-                  setState(() {
-                    _isPlayer = value!;
-                  });
+                  if (value != null) {
+                    setState(() {
+                      _isPlayer = value;
+                    });
+                  }
                 },
               ),
             ),

@@ -2,98 +2,155 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/tournament.dart';
 
 /// Tournament model for Firebase serialization
-class TournamentModel extends Tournament {
-  const TournamentModel({
-    required String id,
-    required String name,
-    String description = '',
-    String? createdByAdminId,
-    required TournamentType type,
-    required String location,
-    required DateTime startDate,
-    DateTime? endDate,
-    required int maxPlayers,
-    required double entryFee,
-    bool isFeatured = false,
-    bool isNational = false,
-    double prizePool = 0.0,
-    String venue = '',
-    int currentPlayers = 0,
-    String? sponsorName,
-    List<String> rules = const [],
-    String? bannerImageUrl,
-    String? youtubeChannelId,
-    List<String> registeredUserIds = const [],
-    required TournamentStatus status,
-    bool isPublic = true,
-    List<String> communityIds = const [],
-    String? imageUrl,
-    Map<String, dynamic>? prizeStructure,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    required String createdBy,
-  }) : super(
-          id: id,
-          name: name,
-          description: description,
-          createdByAdminId: createdByAdminId,
-          type: type,
-          location: location,
-          startDate: startDate,
-          endDate: endDate,
-          maxPlayers: maxPlayers,
-          entryFee: entryFee,
-          isFeatured: isFeatured,
-          isNational: isNational,
-          prizePool: prizePool,
-          venue: venue,
-          currentPlayers: currentPlayers,
-          sponsorName: sponsorName,
-          rules: rules,
-          bannerImageUrl: bannerImageUrl,
-          youtubeChannelId: youtubeChannelId,
-          registeredUserIds: registeredUserIds,
-          status: status,
-          isPublic: isPublic,
-          communityIds: communityIds,
-          imageUrl: imageUrl,
-          prizeStructure: prizeStructure,
-          createdAt: createdAt,
-          updatedAt: updatedAt,
-          createdBy: createdBy,
-        );
+/// Handles BOTH mobile app fields AND web app fields
+/// Provides backward compatibility and graceful mapping
+class TournamentModel {
+  // Mobile app fields (core Tournament entity)
+  final String id;
+  final String name;
+  final String description;
+  final String? createdByAdminId;
+  final String createdBy;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final TournamentType type;
+  final TournamentStatus status;
+  final int maxPlayers;
+  final double entryFee;
+  final double prizePool;
+  final Map<String, dynamic>? prizeStructure;
+  final DateTime startDate;
+  final DateTime? endDate;
+  final String location;
+  final List<TournamentVenue> venues;
+  final TournamentAccess access;
+  final bool isFeatured;
+  final bool isNational;
+  final String? sponsorName;
+  final List<String> rules;
+  final List<String> registeredUserIds;
+  final Map<String, dynamic> searchKeywords;
 
-  /// Create TournamentModel from Tournament entity
+  // Legacy/Web app fields (for backward compatibility)
+  final String? venue; // Maps to location or venues[0].name
+  final int? currentPlayers; // Maps to registeredUserIds.length
+  final String? bannerImageUrl; // Web app only
+  final String? youtubeChannelId; // Web app only
+  final bool? isPublic; // Maps to access.isPublic
+  final List<String>? communityIds; // Maps to access.allowedCommunityIds
+  final String? imageUrl; // Web app only
+
+  const TournamentModel({
+    // Mobile app fields (required)
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.createdByAdminId,
+    required this.createdBy,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.type,
+    required this.status,
+    required this.maxPlayers,
+    required this.entryFee,
+    this.prizePool = 0.0,
+    this.prizeStructure,
+    required this.startDate,
+    this.endDate,
+    required this.location,
+    this.venues = const [],
+    this.access = const TournamentAccess(),
+    this.isFeatured = false,
+    this.isNational = false,
+    this.sponsorName,
+    this.rules = const [],
+    this.registeredUserIds = const [],
+    this.searchKeywords = const {},
+    // Legacy/Web app fields (optional)
+    this.venue,
+    this.currentPlayers,
+    this.bannerImageUrl,
+    this.youtubeChannelId,
+    this.isPublic,
+    this.communityIds,
+    this.imageUrl,
+  });
+
+  /// Convert to mobile app Tournament entity
+  Tournament toEntity() {
+    return Tournament(
+      id: id,
+      name: name,
+      description: description,
+      createdByAdminId: createdByAdminId,
+      createdBy: createdBy,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      type: type,
+      status: status,
+      maxPlayers: maxPlayers,
+      entryFee: entryFee,
+      prizePool: prizePool,
+      prizeStructure: prizeStructure,
+      startDate: startDate,
+      endDate: endDate,
+      location: location,
+      venues: venues,
+      access: access,
+      isFeatured: isFeatured,
+      isNational: isNational,
+      sponsorName: sponsorName,
+      rules: rules,
+      registeredUserIds: registeredUserIds,
+      searchKeywords: searchKeywords,
+    );
+  }
+
+  /// Mobile app compatibility getters
+  /// These provide backward compatibility for widgets expecting old properties
+  
+  /// Mobile app compatibility - primary venue name
+  String get mobileVenue => venues.isNotEmpty ? venues.first.name : location;
+  
+  /// Mobile app compatibility - current player count
+  int get mobileCurrentPlayers => registeredUserIds.length;
+  
+  /// Mobile app compatibility - public status
+  bool get mobileIsPublic => access.isPublic;
+
+  /// Create from mobile app Tournament entity
   factory TournamentModel.fromEntity(Tournament tournament) {
     return TournamentModel(
+      // Mobile app fields
       id: tournament.id,
       name: tournament.name,
       description: tournament.description,
       createdByAdminId: tournament.createdByAdminId,
-      type: tournament.type,
-      location: tournament.location,
-      startDate: tournament.startDate,
-      endDate: tournament.endDate,
-      maxPlayers: tournament.maxPlayers,
-      entryFee: tournament.entryFee,
-      isFeatured: tournament.isFeatured,
-      isNational: tournament.isNational,
-      prizePool: tournament.prizePool,
-      venue: tournament.venue,
-      currentPlayers: tournament.currentPlayers,
-      sponsorName: tournament.sponsorName,
-      rules: tournament.rules,
-      bannerImageUrl: tournament.bannerImageUrl,
-      youtubeChannelId: tournament.youtubeChannelId,
-      registeredUserIds: tournament.registeredUserIds,
-      status: tournament.status,
-      isPublic: tournament.isPublic,
-      communityIds: tournament.communityIds,
-      imageUrl: tournament.imageUrl,
-      prizeStructure: tournament.prizeStructure,
+      createdBy: tournament.createdBy,
       createdAt: tournament.createdAt,
       updatedAt: tournament.updatedAt,
-      createdBy: tournament.createdBy,
+      type: tournament.type,
+      status: tournament.status,
+      maxPlayers: tournament.maxPlayers,
+      entryFee: tournament.entryFee,
+      prizePool: tournament.prizePool,
+      prizeStructure: tournament.prizeStructure,
+      startDate: tournament.startDate,
+      endDate: tournament.endDate,
+      location: tournament.location,
+      venues: tournament.venues,
+      access: tournament.access,
+      isFeatured: tournament.isFeatured,
+      isNational: tournament.isNational,
+      sponsorName: tournament.sponsorName,
+      rules: tournament.rules,
+      registeredUserIds: tournament.registeredUserIds,
+      searchKeywords: tournament.searchKeywords,
+      // Legacy fields for web app compatibility
+      venue: tournament.venues.isNotEmpty ? tournament.venues.first.name : tournament.location,
+      currentPlayers: tournament.registeredUserIds.length,
+      isPublic: tournament.access.isPublic,
+      communityIds: tournament.access.allowedCommunityIds,
     );
   }
 
@@ -101,42 +158,46 @@ class TournamentModel extends Tournament {
   factory TournamentModel.fromJson(Map<String, dynamic> json) {
     try {
       return TournamentModel(
+        // Mobile app core fields
         id: json['id'] as String,
         name: json['name'] as String? ?? 'Unnamed Tournament',
         description: json['description'] as String? ?? '',
         createdByAdminId: json['createdByAdminId'] as String?,
-        type: _parseTournamentType(json['type'] as String? ?? 'beginner'),
-        location: json['location'] as String? ?? json['venue'] as String? ?? '',
-        startDate: _parseDateTime(json['startDate']),
-        endDate:
-            json['endDate'] != null ? _parseDateTime(json['endDate']) : null,
-        maxPlayers: _parseInt(json['maxPlayers']) ?? 0,
-        entryFee: _parseDouble(json['entryFee']) ?? 0.0,
-        isFeatured: json['isFeatured'] as bool? ?? false,
-        isNational: json['isNational'] as bool? ?? false,
-        prizePool: _parseDouble(json['prizePool']) ?? 0.0,
-        venue: json['venue'] as String? ?? '',
-        currentPlayers: _parseInt(json['currentPlayers']) ?? 0,
-        sponsorName: json['sponsorName'] as String?,
-        rules: _parseStringList(json['rules']),
-        bannerImageUrl: json['bannerImageUrl'] as String?,
-        youtubeChannelId: json['youtubeChannelId'] as String?,
-        registeredUserIds: _parseStringList(json['registeredUserIds']),
-        status: _parseTournamentStatus(json['status'] as String? ?? 'upcoming'),
-        isPublic: json['isPublic'] as bool? ?? true,
-        communityIds: _parseStringList(json['communityIds']),
-        imageUrl:
-            json['imageUrl'] as String? ?? json['bannerImageUrl'] as String?,
-        prizeStructure: json['prizeStructure'] as Map<String, dynamic>?,
+        createdBy: json['createdBy'] as String? ??
+            json['createdByAdminId'] as String? ??
+            '',
         createdAt: json['createdAt'] != null
             ? _parseDateTime(json['createdAt'])
             : DateTime.now(),
         updatedAt: json['updatedAt'] != null
             ? _parseDateTime(json['updatedAt'])
             : DateTime.now(),
-        createdBy: json['createdBy'] as String? ??
-            json['createdByAdminId'] as String? ??
-            '',
+        type: _parseTournamentType(json['type'] as String? ?? 'beginner'),
+        status: _parseTournamentStatus(json['status'] as String? ?? 'upcoming'),
+        maxPlayers: _parseInt(json['maxPlayers']) ?? 0,
+        entryFee: _parseDouble(json['entryFee']) ?? 0.0,
+        prizePool: _parseDouble(json['prizePool']) ?? 0.0,
+        prizeStructure: json['prizeStructure'] as Map<String, dynamic>?,
+        startDate: _parseDateTime(json['startDate']),
+        endDate:
+            json['endDate'] != null ? _parseDateTime(json['endDate']) : null,
+        location: json['location'] as String? ?? json['venue'] as String? ?? '',
+        venues: _parseVenues(json['venues']),
+        access: _parseAccess(json['access'], json['isPublic'], json['communityIds']),
+        isFeatured: json['isFeatured'] as bool? ?? false,
+        isNational: json['isNational'] as bool? ?? false,
+        sponsorName: json['sponsorName'] as String?,
+        rules: _parseStringList(json['rules']),
+        registeredUserIds: _parseStringList(json['registeredUserIds']),
+        searchKeywords: _parseSearchKeywords(json['searchKeywords']),
+        // Legacy/Web app fields for compatibility
+        venue: json['venue'] as String?,
+        currentPlayers: _parseInt(json['currentPlayers']),
+        bannerImageUrl: json['bannerImageUrl'] as String?,
+        youtubeChannelId: json['youtubeChannelId'] as String?,
+        isPublic: json['isPublic'] as bool?,
+        communityIds: _parseStringList(json['communityIds']),
+        imageUrl: json['imageUrl'] as String? ?? json['bannerImageUrl'] as String?,
       );
     } catch (e) {
       print('🚨 ERROR: Failed to parse tournament document ${json['id']}: $e');
@@ -147,17 +208,15 @@ class TournamentModel extends Tournament {
         name: json['name'] as String? ?? 'Invalid Tournament Data',
         description:
             'This tournament has corrupted data and needs to be fixed.',
-        type: TournamentType.beginner,
-        location: 'Unknown',
-        startDate: DateTime.now().add(const Duration(days: 30)),
-        maxPlayers: 0,
-        entryFee: 0.0,
-        status: TournamentStatus.draft,
-        venue: 'Unknown',
-        currentPlayers: 0,
+        createdBy: 'system',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-        createdBy: 'system',
+        type: TournamentType.beginner,
+        status: TournamentStatus.draft,
+        maxPlayers: 0,
+        entryFee: 0.0,
+        startDate: DateTime.now().add(const Duration(days: 30)),
+        location: 'Unknown',
       );
     }
   }
@@ -269,40 +328,6 @@ class TournamentModel extends Tournament {
     return TournamentModel.fromJson(data);
   }
 
-  /// Convert to Tournament entity
-  Tournament toEntity() {
-    return Tournament(
-      id: id,
-      name: name,
-      description: description,
-      createdByAdminId: createdByAdminId,
-      type: type,
-      location: location,
-      startDate: startDate,
-      endDate: endDate,
-      maxPlayers: maxPlayers,
-      entryFee: entryFee,
-      isFeatured: isFeatured,
-      isNational: isNational,
-      prizePool: prizePool,
-      venue: venue,
-      currentPlayers: currentPlayers,
-      sponsorName: sponsorName,
-      rules: rules,
-      bannerImageUrl: bannerImageUrl,
-      youtubeChannelId: youtubeChannelId,
-      registeredUserIds: registeredUserIds,
-      status: status,
-      isPublic: isPublic,
-      communityIds: communityIds,
-      imageUrl: imageUrl,
-      prizeStructure: prizeStructure,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-      createdBy: createdBy,
-    );
-  }
-
   /// Convert TournamentModel to JSON
   Map<String, dynamic> toJson() {
     return {
@@ -310,30 +335,35 @@ class TournamentModel extends Tournament {
       'name': name,
       'description': description,
       'createdByAdminId': createdByAdminId,
-      'type': _tournamentTypeToString(type),
-      'location': location,
-      'startDate': Timestamp.fromDate(startDate),
-      'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
-      'maxPlayers': maxPlayers,
-      'entryFee': entryFee,
-      'isFeatured': isFeatured,
-      'isNational': isNational,
-      'prizePool': prizePool,
-      'venue': venue,
-      'currentPlayers': currentPlayers,
-      'sponsorName': sponsorName,
-      'rules': rules,
-      'bannerImageUrl': bannerImageUrl,
-      'youtubeChannelId': youtubeChannelId,
-      'registeredUserIds': registeredUserIds,
-      'status': _tournamentStatusToString(status),
-      'isPublic': isPublic,
-      'communityIds': communityIds,
-      'imageUrl': imageUrl,
-      'prizeStructure': prizeStructure,
+      // Mobile app fields
+      'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
-      'createdBy': createdBy,
+      'type': _tournamentTypeToString(type),
+      'status': _tournamentStatusToString(status),
+      'maxPlayers': maxPlayers,
+      'entryFee': entryFee,
+      'prizePool': prizePool,
+      'prizeStructure': prizeStructure,
+      'startDate': Timestamp.fromDate(startDate),
+      'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
+      'location': location,
+      'venues': venues.map((v) => v.toJson()).toList(),
+      'access': access.toJson(),
+      'isFeatured': isFeatured,
+      'isNational': isNational,
+      'sponsorName': sponsorName,
+      'rules': rules,
+      'registeredUserIds': registeredUserIds,
+      'searchKeywords': searchKeywords,
+      // Legacy/Web app fields for backward compatibility
+      'venue': mobileVenue,
+      'currentPlayers': mobileCurrentPlayers,
+      'isPublic': mobileIsPublic,
+      'communityIds': access.allowedCommunityIds,
+      if (bannerImageUrl != null) 'bannerImageUrl': bannerImageUrl,
+      if (youtubeChannelId != null) 'youtubeChannelId': youtubeChannelId,
+      if (imageUrl != null) 'imageUrl': imageUrl,
     };
   }
 
@@ -369,8 +399,6 @@ class TournamentModel extends Tournament {
         return 'registration_open';
       case TournamentStatus.registration_closed:
         return 'registration_closed';
-      case TournamentStatus.in_progress:
-        return 'in_progress';
       case TournamentStatus.completed:
         return 'completed';
       case TournamentStatus.cancelled:
@@ -410,7 +438,7 @@ class TournamentModel extends Tournament {
       case 'registration_closed':
         return TournamentStatus.registration_closed;
       case 'in_progress':
-        return TournamentStatus.in_progress;
+        return TournamentStatus.active;
       case 'completed':
         return TournamentStatus.completed;
       case 'cancelled':
@@ -425,66 +453,111 @@ class TournamentModel extends Tournament {
   }
 
   /// Create a copy with updated fields
-  @override
   TournamentModel copyWith({
     String? id,
     String? name,
     String? description,
     String? createdByAdminId,
-    TournamentType? type,
-    String? location,
-    DateTime? startDate,
-    DateTime? endDate,
-    int? maxPlayers,
-    double? entryFee,
-    bool? isFeatured,
-    bool? isNational,
-    double? prizePool,
-    String? venue,
-    int? currentPlayers,
-    String? sponsorName,
-    List<String>? rules,
-    String? bannerImageUrl,
-    String? youtubeChannelId,
-    List<String>? registeredUserIds,
-    TournamentStatus? status,
-    bool? isPublic,
-    List<String>? communityIds,
-    String? imageUrl,
-    Map<String, dynamic>? prizeStructure,
+    String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
-    String? createdBy,
+    TournamentType? type,
+    TournamentStatus? status,
+    int? maxPlayers,
+    double? entryFee,
+    double? prizePool,
+    Map<String, dynamic>? prizeStructure,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? location,
+    List<TournamentVenue>? venues,
+    TournamentAccess? access,
+    bool? isFeatured,
+    bool? isNational,
+    String? sponsorName,
+    List<String>? rules,
+    List<String>? registeredUserIds,
+    Map<String, dynamic>? searchKeywords,
   }) {
     return TournamentModel(
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
       createdByAdminId: createdByAdminId ?? this.createdByAdminId,
-      type: type ?? this.type,
-      location: location ?? this.location,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
-      maxPlayers: maxPlayers ?? this.maxPlayers,
-      entryFee: entryFee ?? this.entryFee,
-      isFeatured: isFeatured ?? this.isFeatured,
-      isNational: isNational ?? this.isNational,
-      prizePool: prizePool ?? this.prizePool,
-      venue: venue ?? this.venue,
-      currentPlayers: currentPlayers ?? this.currentPlayers,
-      sponsorName: sponsorName ?? this.sponsorName,
-      rules: rules ?? this.rules,
-      bannerImageUrl: bannerImageUrl ?? this.bannerImageUrl,
-      youtubeChannelId: youtubeChannelId ?? this.youtubeChannelId,
-      registeredUserIds: registeredUserIds ?? this.registeredUserIds,
-      status: status ?? this.status,
-      isPublic: isPublic ?? this.isPublic,
-      communityIds: communityIds ?? this.communityIds,
-      imageUrl: imageUrl ?? this.imageUrl,
-      prizeStructure: prizeStructure ?? this.prizeStructure,
+      createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      createdBy: createdBy ?? this.createdBy,
+      type: type ?? this.type,
+      status: status ?? this.status,
+      maxPlayers: maxPlayers ?? this.maxPlayers,
+      entryFee: entryFee ?? this.entryFee,
+      prizePool: prizePool ?? this.prizePool,
+      prizeStructure: prizeStructure ?? this.prizeStructure,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      location: location ?? this.location,
+      venues: venues ?? this.venues,
+      access: access ?? this.access,
+      isFeatured: isFeatured ?? this.isFeatured,
+      isNational: isNational ?? this.isNational,
+      sponsorName: sponsorName ?? this.sponsorName,
+      rules: rules ?? this.rules,
+      registeredUserIds: registeredUserIds ?? this.registeredUserIds,
+      searchKeywords: searchKeywords ?? this.searchKeywords,
     );
+  }
+
+  /// Parse venues from JSON
+  static List<TournamentVenue> _parseVenues(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value
+          .map((item) {
+            try {
+              if (item is Map<String, dynamic>) {
+                return TournamentVenue.fromJson(item);
+              }
+            } catch (e) {
+              print('⚠️ Failed to parse venue: $e');
+            }
+            return null;
+          })
+          .where((v) => v != null)
+          .cast<TournamentVenue>()
+          .toList();
+    }
+    return [];
+  }
+
+  /// Parse access from JSON with legacy support
+  static TournamentAccess _parseAccess(dynamic value, dynamic legacyIsPublic, dynamic legacyCommunityIds) {
+    // Try new format first
+    if (value != null) {
+      try {
+        if (value is Map<String, dynamic>) {
+          return TournamentAccess.fromJson(value);
+        }
+      } catch (e) {
+        print('⚠️ Failed to parse new access format: $e');
+      }
+    }
+    
+    // Fallback to legacy format
+    final isPublic = legacyIsPublic as bool? ?? true;
+    final communityIds = _parseStringList(legacyCommunityIds);
+    
+    return TournamentAccess(
+      isPublic: isPublic,
+      allowedCommunityIds: communityIds,
+    );
+  }
+
+  /// Parse search keywords from JSON
+  static Map<String, dynamic> _parseSearchKeywords(dynamic value) {
+    if (value == null) return {};
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+    return {};
   }
 }

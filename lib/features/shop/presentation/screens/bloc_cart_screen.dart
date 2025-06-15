@@ -38,7 +38,8 @@ class BlocCartScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              context.read<ShopBloc>().add(ClearCartEvent('current_user'));
+              final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+              context.read<ShopBloc>().add(ClearCartEvent(userId));
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Cart cleared successfully'),
@@ -119,7 +120,7 @@ class BlocCartScreen extends StatelessWidget {
                     onPressed: () {
                       context
                           .read<ShopBloc>()
-                          .add(LoadCartItemsEvent('current_user'));
+                          .add(LoadCartItemsEvent(FirebaseAuth.instance.currentUser?.uid ?? ''));
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.accentColor,
@@ -199,7 +200,7 @@ class BlocCartScreen extends StatelessWidget {
                         padding: const EdgeInsets.all(12),
                         child: Row(
                           children: [
-                            // Product image placeholder
+                            // Product image
                             Container(
                               width: 60,
                               height: 60,
@@ -207,11 +208,32 @@ class BlocCartScreen extends StatelessWidget {
                                 color: AppTheme.accentColor.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Icon(
-                                Icons.sports_basketball,
-                                color: AppTheme.accentColor,
-                                size: 30,
-                              ),
+                              child: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                                ? item.imageUrl!.contains('via.placeholder.com')
+                                  ? Icon(
+                                      Icons.image,
+                                      color: AppTheme.accentColor,
+                                      size: 30,
+                                    )
+                                  : ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        item.imageUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Icon(
+                                            Icons.broken_image,
+                                            color: AppTheme.accentColor,
+                                            size: 30,
+                                          );
+                                        },
+                                      ),
+                                    )
+                                : Icon(
+                                    Icons.sports_basketball,
+                                    color: AppTheme.accentColor,
+                                    size: 30,
+                                  ),
                             ),
                             const SizedBox(width: 12),
 
@@ -258,7 +280,7 @@ class BlocCartScreen extends StatelessWidget {
                                         if (item.quantity > 1) {
                                           context.read<ShopBloc>().add(
                                                 UpdateCartItemQuantityEvent(
-                                                  'current_user',
+                                                  FirebaseAuth.instance.currentUser?.uid ?? '',
                                                   item.id,
                                                   item.quantity - 1,
                                                 ),
@@ -267,7 +289,7 @@ class BlocCartScreen extends StatelessWidget {
                                           // Remove item if quantity would be 0
                                           context.read<ShopBloc>().add(
                                                 RemoveFromCartEvent(
-                                                    'current_user', item.id),
+                                                    FirebaseAuth.instance.currentUser?.uid ?? '', item.id),
                                               );
                                         }
                                       },
@@ -306,7 +328,7 @@ class BlocCartScreen extends StatelessWidget {
                                       onTap: () {
                                         context.read<ShopBloc>().add(
                                               UpdateCartItemQuantityEvent(
-                                                'current_user',
+                                                FirebaseAuth.instance.currentUser?.uid ?? '',
                                                 item.id,
                                                 item.quantity + 1,
                                               ),

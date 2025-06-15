@@ -74,7 +74,7 @@ class _SmsVerificationScreenState extends State<SmsVerificationScreen> {
   }
 
   void _verifyCode() {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState?.validate() != true) return;
 
     setState(() => _isLoading = true);
     _startVerificationTimeout(); // Restart timeout protection

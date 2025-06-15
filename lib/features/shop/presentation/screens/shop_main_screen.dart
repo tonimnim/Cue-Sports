@@ -7,6 +7,8 @@ import '../bloc/shop_event.dart';
 import '../bloc/shop_state.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/cart_item.dart';
+import '../../../../firebase/firebase_services.dart';
+import '../../../../core/di/injection_container.dart' as di;
 
 class ShopMainScreen extends StatefulWidget {
   final VoidCallback? onBackPressed;
@@ -203,8 +205,8 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Featured Section - Only show if there are featured products
-                if (state.featuredProducts.isNotEmpty) ...[
+                // Featured Section - Only show if there are featured products and not in Accessories category
+                if (_selectedCategory != 'Accessories') ...[  
                   _buildFeaturedSection(state.featuredProducts),
                   const SizedBox(height: 24),
                 ],
@@ -279,7 +281,8 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
     final categories = ['Apparel', 'Merchandise', 'Accessories'];
 
     return Container(
-      height: 50,
+      // Reduce height from 50 to 40
+      height: 40,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: categories.map((category) {
@@ -295,14 +298,18 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
                     .add(FilterProductsByCategoryEvent(category));
               },
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
+                // Reduce horizontal margin
+                margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
                   color: isSelected ? AppTheme.accentColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(25),
+                  // Reduce border radius for sleeker look
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected
                         ? AppTheme.accentColor
                         : Colors.white.withOpacity(0.3),
+                    // Thinner border
+                    width: 0.8,
                   ),
                 ),
                 child: Center(
@@ -312,7 +319,8 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
                       color: isSelected ? Colors.black : Colors.white,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
-                      fontSize: 14,
+                      // Smaller font size
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -325,6 +333,16 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
   }
 
   Widget _buildFeaturedSection(List<Product> featuredProducts) {
+    // Filter featured products to only include those that are actually featured
+    // and belong to the current category
+    final filteredFeaturedProducts = featuredProducts.where((product) =>
+        product.isFeatured && product.category == _selectedCategory).toList();
+        
+    // Only show the section if there are featured products for this category
+    if (filteredFeaturedProducts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -341,9 +359,9 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
           height: 280,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: featuredProducts.length,
+            itemCount: filteredFeaturedProducts.length,
             itemBuilder: (context, index) {
-              return _buildFeaturedProductCard(featuredProducts[index]);
+              return _buildFeaturedProductCard(filteredFeaturedProducts[index]);
             },
           ),
         ),
@@ -389,22 +407,7 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
                         )
                       : _buildPlaceholderImage(),
                 ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite_border,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                ),
+                // Heart icon removed
               ],
             ),
           ),
@@ -558,6 +561,7 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
                                 top: Radius.circular(16)),
                             child: Image.network(
                               product.imageUrl,
+                              height: double.infinity,
                               width: double.infinity,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
@@ -566,22 +570,7 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
                           )
                         : _buildPlaceholderImage(),
                   ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.favorite_border,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ),
+                  // Heart icon removed
                 ],
               ),
             ),
@@ -687,6 +676,7 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
       price: product.price,
       quantity: 1,
       imageUrl: product.imageUrl,
+      userId: di.sl<FirebaseServices>().auth.currentUser?.uid ?? '',
     );
 
     context.read<ShopBloc>().add(AddToCartEvent(cartItem));

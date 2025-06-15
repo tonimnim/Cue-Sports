@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/config/theme.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/usecases/usecase.dart';
 import '../../domain/entities/tournament.dart';
 import '../../domain/entities/match.dart';
 import '../bloc/tournament_bloc.dart';
@@ -13,6 +14,8 @@ import '../widgets/live_tournament_card.dart';
 import '../widgets/tournament_search_bar.dart';
 import '../../../payment/domain/entities/payment.dart' as payment_entity;
 import '../../../payment/services/payment_migration_helper.dart';
+import '../../../auth/domain/get_current_user_use_case.dart';
+import '../../../auth/domain/entities/user.dart' as auth_user;
 
 class TournamentListScreen extends StatefulWidget {
   const TournamentListScreen({Key? key}) : super(key: key);
@@ -24,18 +27,40 @@ class TournamentListScreen extends StatefulWidget {
 class _TournamentListScreenState extends State<TournamentListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late GetCurrentUserUseCase _getCurrentUserUseCase;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isRegistering = false;
+  auth_user.User? _currentUser;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _getCurrentUserUseCase = di.sl<GetCurrentUserUseCase>();
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase();
       });
     });
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final userResult = await _getCurrentUserUseCase(NoParams());
+    userResult.fold(
+      (failure) {
+        print('❌ Failed to get current user: ${failure.message}');
+      },
+      (user) {
+        print('✅ Current user loaded: ${user?.fullName} (${user?.userType}) - ID: ${user?.id}');
+        if (mounted) {
+          setState(() {
+            _currentUser = user;
+          });
+        }
+      },
+    );
   }
 
   @override
@@ -49,7 +74,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => di.sl<TournamentBloc>()
-        ..add(const LoadFeaturedTournamentsEvent())
+        ..add(const LoadTournamentsEvent())
         ..add(const LoadActiveTournamentsEvent())
         ..add(const LoadLiveMatchesEvent()),
       child: Scaffold(
@@ -131,23 +156,25 @@ class _TournamentListScreenState extends State<TournamentListScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Featured Tournaments Section
-            if (state.featuredTournaments.isNotEmpty) ...[
-              _buildSectionHeader('Featured Tournaments'),
+            // National Tournaments Section (only national tournaments are featured)
+            if (state.activeTournaments.where((t) => t.type == TournamentType.national).isNotEmpty) ...[
+              _buildSectionHeader('National Tournaments'),
               const SizedBox(height: 12),
               SizedBox(
                 height: 280,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: state.featuredTournaments.length,
+                  itemCount: state.activeTournaments.where((t) => t.type == TournamentType.national).length,
                   itemBuilder: (context, index) {
-                    final tournament = state.featuredTournaments[index];
+                    final nationalTournaments = state.activeTournaments.where((t) => t.type == TournamentType.national).toList();
+                    final tournament = nationalTournaments[index];
                     return Container(
                       width: 320,
                       margin: const EdgeInsets.only(right: 16),
                       child: TournamentCard(
                         tournament: tournament,
                         isFeatured: true,
+                        currentUser: _currentUser,
                         onTap: () => _navigateToTournamentDetails(tournament),
                         onRegister: () =>
                             _handleTournamentRegistration(tournament),
@@ -187,6 +214,8 @@ class _TournamentListScreenState extends State<TournamentListScreen>
                     padding: const EdgeInsets.only(bottom: 12),
                     child: TournamentCard(
                       tournament: tournament,
+                      isFeatured: tournament.type == TournamentType.national,
+                      currentUser: _currentUser,
                       onTap: () => _navigateToTournamentDetails(tournament),
                       onRegister: () =>
                           _handleTournamentRegistration(tournament),
@@ -246,6 +275,8 @@ class _TournamentListScreenState extends State<TournamentListScreen>
                   padding: const EdgeInsets.only(bottom: 12),
                   child: TournamentCard(
                     tournament: tournament,
+                    isFeatured: tournament.type == TournamentType.national,
+                    currentUser: _currentUser,
                     onTap: () => _navigateToTournamentDetails(tournament),
                     onRegister: () => _handleTournamentRegistration(tournament),
                   ),
@@ -369,7 +400,9 @@ class _TournamentListScreenState extends State<TournamentListScreen>
     }
   }
 
-  void _handleTournamentRegistration(Tournament tournament) {
+  void _handleTournamentRegistration(Tournament tournament) async {
+    if (_isRegistering) return; // Prevent double registration
+    
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -391,37 +424,111 @@ class _TournamentListScreenState extends State<TournamentListScreen>
       return;
     }
 
-    // Navigate to payment for tournament registration
-    PaymentMigrationHelper.navigateToUnifiedPayment(
-      context,
-      paymentType: payment_entity.PaymentType.tournament,
-      typeId: tournament.id,
-      userId: user.uid,
-      amount: tournament.entryFee,
-      metadata: {
-        'tournamentName': tournament.name,
-        'tournamentDate': tournament.dateRange,
-        'tournamentVenue': tournament.venue,
-      },
-      onSuccess: () {
-        // Refresh tournaments and show success
-        context.read<TournamentBloc>().add(const RefreshTournamentsEvent());
+    setState(() => _isRegistering = true);
 
+    try {
+      // Get current user details to access community information
+      final userResult = await _getCurrentUserUseCase(NoParams());
+      
+      auth_user.User? currentUser;
+      List<String> userCommunityIds = [];
+      
+      userResult.fold(
+        (failure) {
+          print('❌ Failed to get current user: ${failure.message}');
+          // Continue with empty community list - user might not be in a community yet
+        },
+        (user) {
+          currentUser = user;
+          if (user?.communityId != null) {
+            userCommunityIds = [user.communityId!];
+          }
+        },
+      );
+
+      // Check if user can access this tournament
+      if (!tournament.isVisibleToUser(user.uid, userCommunityIds)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully registered for ${tournament.name}'),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
-      },
-      onFailure: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration failed. Please try again.'),
+            content: Text(
+              tournament.hasAccessRestrictions 
+                ? 'You must be a member of an allowed community to register for this tournament'
+                : 'You do not have access to this tournament'
+            ),
             backgroundColor: Colors.red,
           ),
         );
-      },
-    );
+        setState(() => _isRegistering = false);
+        return;
+      }
+
+      // Ensure user has a community for registration (required by tournament system)
+      if (currentUser?.communityId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please join a community before registering for tournaments'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        setState(() => _isRegistering = false);
+        return;
+      }
+
+      // Navigate to payment for tournament registration
+      PaymentMigrationHelper.navigateToUnifiedPayment(
+        context,
+        paymentType: payment_entity.PaymentType.tournament,
+        typeId: tournament.id,
+        userId: user.uid,
+        amount: tournament.entryFee,
+        metadata: {
+          'tournamentName': tournament.name,
+          'tournamentDate': tournament.dateRange,
+          'tournamentVenue': tournament.primaryVenue,
+          'userCommunityId': currentUser?.communityId ?? '',
+        },
+        onSuccess: () {
+          // Reset the registering state
+          if (mounted) {
+            setState(() => _isRegistering = false);
+          }
+          
+          // Refresh tournaments and show success
+          context.read<TournamentBloc>().add(const RefreshTournamentsEvent());
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Successfully registered for ${tournament.name}'),
+                backgroundColor: AppTheme.successColor,
+              ),
+            );
+          }
+        },
+        onFailure: () {
+          if (mounted) {
+            setState(() => _isRegistering = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Registration failed. Please try again.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      print('❌ Error during registration process: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isRegistering = false);
+      }
+    }
   }
 }

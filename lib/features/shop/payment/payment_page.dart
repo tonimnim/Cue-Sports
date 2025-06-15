@@ -5,9 +5,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:developer' as developer;
-// Removed import for deleted add_order.dart - functionality moved to BLoC
-import 'package:pool_billiard_app/core/config/theme.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/shop_bloc.dart';
+import '../bloc/shop_event.dart';
+import '../../domain/entities/shop_order.dart';
+import '../../domain/entities/cart_item.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/services/logger_service.dart';
+import '../../../../injection_container.dart' as di;
 
 enum PaymentStatus { initial, pending, success, failed }
 
@@ -41,14 +46,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _mpesaReceiptNumber;
   String? _txnUnique; // Store the transaction unique identifier
   bool _orderCreated = false; // Flag to track if an order has been created
+  final LoggerService _logger = di.sl<LoggerService>();
 
   @override
   void initState() {
     super.initState();
     // Set phone number from widget if provided, otherwise use a default for testing
     if (widget.prefillPhoneNumber != null &&
-        widget.prefillPhoneNumber!.isNotEmpty) {
-      _phoneController.text = widget.prefillPhoneNumber!;
+        widget.prefillPhoneNumber.isNotEmpty) {
+      _phoneController.text = widget.prefillPhoneNumber;
     } else {
       // Default for testing - should be removed in production
       _phoneController.text = "0712345678";
@@ -185,6 +191,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _processPayment() async {
+    _logger.i('Starting payment process for ${widget.paymentType} with amount: ${widget.amount}');
     print('Starting payment process...');
     print('Phone number from controller: ${_phoneController.text}');
     print('User ID from widget: ${widget.userId}');
@@ -213,30 +220,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     // If userId is empty, try to retrieve it from Firestore using phone number
     if (userId.isEmpty) {
-      print('User ID is empty, attempting to retrieve from phone number');
+      _logger.i('User ID is empty, attempting to retrieve from phone number: $phoneNumber');
       final retrievedUserId = await _getUserIdFromPhoneNumber(phoneNumber);
 
       if (retrievedUserId != null && retrievedUserId.isNotEmpty) {
         userId = retrievedUserId;
-        print('Successfully retrieved userId from phone number: $userId');
+        _logger.i('Successfully retrieved userId from phone number: $userId');
       } else {
         // Continue with guest_user instead of showing error
         userId = 'guest_user';
-        print('Could not find user ID, using guest_user instead');
-        developer.log(
-          'Using guest_user as fallback since userId could not be retrieved',
-          name: 'PaymentScreen',
-        );
+        _logger.w('Could not find user ID, using guest_user instead');
       }
     }
 
     // Generate txn_unique with the retrieved or provided user ID
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     _txnUnique = "${userId}_$timestamp";
-    developer.log(
-      'Generated txn_unique: $_txnUnique for userId: $userId at timestamp: $timestamp',
-      name: 'PaymentScreen',
-    );
+    _logger.i('Generated txn_unique: $_txnUnique for userId: $userId at timestamp: $timestamp');
 
     setState(() {
       _paymentStatus = PaymentStatus.initial;
@@ -265,10 +265,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'txn_unique': _txnUnique,
       };
 
-      developer.log(
-        'Initiating payment request with payload: ${jsonEncode(payload)}',
-        name: 'PaymentScreen',
-      );
+      _logger.i('Initiating payment request with payload: ${jsonEncode(payload)}');
 
       // Send JSON request to initiate payment
       final response = await http.post(
@@ -277,10 +274,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         body: jsonEncode(payload),
       );
 
-      developer.log(
-        'Payment initiation response: Status=${response.statusCode}, Body=${response.body}',
-        name: 'PaymentScreen',
-      );
+      _logger.i('Payment initiation response: Status=${response.statusCode}, Body=${response.body}');
 
       setState(() {
         _isLoading = false;
@@ -306,21 +300,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   responseData['message'] ?? 'Failed to initiate payment';
             });
             _showErrorDialog(_errorMessage);
-            // Create test order with MPESA01 receipt even though TinyPesa failed
-            // Only create order if we haven't created one yet
-            if (!_orderCreated) {
-              _createOrder('MPESA01');
-              _orderCreated = true; // Mark that an order has been created
-              developer.log(
-                'Creating test order with MPESA01 receipt after TinyPesa error',
-                name: 'PaymentScreen',
-              );
-            } else {
-              developer.log(
-                'Skipping order creation - order already created previously',
-                name: 'PaymentScreen',
-              );
-            }
+            // Do not create an order when TinyPesa initialization fails
+            _logger.w('TinyPesa initialization failed. No order will be created.');
           }
         } catch (e) {
           setState(() {
@@ -328,10 +309,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
             _errorMessage = 'Error parsing payment initiation response: $e';
           });
           _showErrorDialog(_errorMessage);
-          developer.log(
+          _logger.e(
             'Error parsing payment initiation response: $e',
-            name: 'PaymentScreen',
-            error: e,
+            e,
           );
         }
       } else {
@@ -356,97 +336,148 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _showErrorDialog(_errorMessage);
     }
   }
-
-  Future<void> _checkTransactionStatus() async {
-    if (_txnUnique == null) {
-      developer.log(
-        'No txn_unique available for status check',
-        name: 'PaymentScreen',
-      );
+  
+  void _startPayment() async {
+    if (_phoneController.text.isEmpty) {
+      setState(() {
+        _errorMessage = 'Please enter a phone number';
+      });
       return;
     }
 
+    setState(() {
+      _isLoading = true;
+      _paymentStatus = PaymentStatus.pending;
+      _errorMessage = '';
+    });
+
+    _logger.i('Starting payment process for ${widget.paymentType} with amount: ${widget.amount}');
+    _logger.i('Phone number: ${_phoneController.text.trim()}, User ID: ${widget.userId}');
+
     try {
-      // Prepare the payload for status check with txn_unique
-      final Map<String, dynamic> payload = {'txn_unique': _txnUnique};
+      // Generate a unique transaction ID
+      final txnUnique = 'txn_${DateTime.now().millisecondsSinceEpoch}';
+      _txnUnique = txnUnique;
 
-      // Log the data being sent
-      developer.log(
-        'Sending status check request to check_transaction.php with payload: ${jsonEncode(payload)}',
-        name: 'PaymentScreen',
-      );
+      _logger.i('Generated transaction ID: $txnUnique');
 
-      // Send status check request
+      // Make the API call to initiate payment
       final response = await http.post(
-        Uri.parse(
-          'https://seroxideentertainment.co.ke/pool/check_transaction.php',
-        ),
+        Uri.parse('https://seroxideentertainment.co.ke/pool/stk_push.php'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
+        body: jsonEncode({
+          'phone': _phoneController.text.trim(),
+          'amount': widget.amount.toString(),
+          'txn_unique': txnUnique,
+        }),
       );
 
-      // Log the response received
-      developer.log(
-        'Received response from check_transaction.php: Status=${response.statusCode}, Body=${response.body}',
-        name: 'PaymentScreen',
-      );
+      _logger.i('STK push API response: Status=${response.statusCode}, Body=${response.body}');
 
       if (response.statusCode == 200) {
         try {
           final responseData = jsonDecode(response.body);
 
-          // Log the checkoutRequestID
-          if (responseData['checkoutRequestID'] != null) {
-            developer.log(
-              'Checkout Request ID: ${responseData['checkoutRequestID']}',
-              name: 'PaymentScreen',
-            );
-          }
+          if (responseData['status'] == 'success') {
+            _logger.i('STK push initiated successfully, CheckoutRequestID: ${responseData['CheckoutRequestID']}');
+            // Store the CheckoutRequestID for status checking
+            _checkoutRequestID = responseData['CheckoutRequestID'];
 
-          if (responseData['status'] == 'completed' ||
-              responseData['status'] == 'success') {
+            // Start checking the transaction status
+            _startStatusCheck();
+          } else {
+            _logger.w('STK push failed: ${responseData['message']}');
+            setState(() {
+              _isLoading = false;
+              _paymentStatus = PaymentStatus.failed;
+              _errorMessage = responseData['message'] ?? 'Payment initiation failed';
+            });
+            _showErrorDialog(_errorMessage);
+          }
+        } catch (e) {
+          _logger.e('Error parsing STK push response: $e', e);
+          setState(() {
+            _isLoading = false;
+            _paymentStatus = PaymentStatus.failed;
+            _errorMessage = 'Error processing payment response';
+          });
+          _showErrorDialog(_errorMessage);
+        }
+      } else {
+        _logger.e('STK push API request failed with status: ${response.statusCode}');
+        setState(() {
+          _isLoading = false;
+          _paymentStatus = PaymentStatus.failed;
+          _errorMessage = 'Payment service unavailable';
+        });
+        _showErrorDialog(_errorMessage);
+      }
+    } catch (e) {
+      _logger.e('Network error during payment initiation: $e', e);
+      setState(() {
+        _isLoading = false;
+        _paymentStatus = PaymentStatus.failed;
+        _errorMessage = 'Network error: $e';
+      });
+      _showErrorDialog(_errorMessage);
+    }
+  }
+
+  Future<void> _checkTransactionStatus() async {
+    if (_txnUnique == null) {
+      _logger.e('Cannot check transaction status: txn_unique is null');
+      return;
+    }
+
+    try {
+      _logger.i('Checking transaction status for txn_unique: $_txnUnique');
+      final response = await http.post(
+        Uri.parse('https://seroxideentertainment.co.ke/pool/check_payment_status.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'txn_unique': _txnUnique}),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final responseData = jsonDecode(response.body);
+          _logger.i('Status check response: ${response.body}');
+
+          if (responseData['status'] == 'success') {
+            // Extract receipt number if available
+            final receiptNumber = responseData['receipt_number'] ?? '';
+            _logger.i('Received receipt number: $receiptNumber');
+
             setState(() {
               _paymentStatus = PaymentStatus.success;
-              _checkoutRequestID = responseData['checkoutRequestID'];
-
-              // Use actual receipt number from the response, don't default to MPESA01 here
-              _mpesaReceiptNumber = responseData['mpesaReceiptNumber'];
+              _mpesaReceiptNumber = receiptNumber;
             });
             _statusCheckTimer?.cancel();
 
-            // Create order with the actual receipt number after successful payment
-            if (!_orderCreated && _mpesaReceiptNumber != null) {
-              bool orderSuccess = await _createOrder(_mpesaReceiptNumber!);
-              _orderCreated = true; // Mark that an order has been created
-              developer.log(
-                'Creating order with actual receipt number: $_mpesaReceiptNumber after successful payment. Success: $orderSuccess',
-                name: 'PaymentScreen',
-              );
-
-              // If order was created successfully, show success dialog to return to previous screen
-              if (orderSuccess) {
+            // Only create order if we have a receipt number and order not already created
+            if (receiptNumber.isNotEmpty && !_orderCreated) {
+              _logger.i('Creating order with valid receipt number: $receiptNumber');
+              final orderCreated = await _createOrder(receiptNumber);
+              
+              if (orderCreated) {
+                _logger.i('Order successfully created with receipt: $receiptNumber');
+                setState(() {
+                  _orderCreated = true;
+                });
                 _showSuccessDialog();
+              } else {
+                _logger.e('Failed to create order despite successful payment');
+                _showErrorDialog('Payment was successful but we couldn\'t create your order. Please contact support.');
               }
             } else if (!_orderCreated) {
               // If no receipt number, log but don't create order here
-              developer.log(
-                'No receipt number available from successful transaction',
-                name: 'PaymentScreen',
-              );
-              // Show success dialog anyway
-              _showSuccessDialog();
+              _logger.w('No receipt number available from successful transaction - cannot create order');
+              _showErrorDialog('Payment was successful but no receipt number was provided. Please contact support.');
             } else {
-              developer.log(
-                'Skipping order creation in success handler - order already created previously',
-                name: 'PaymentScreen',
-              );
+              _logger.i('Skipping order creation in success handler - order already created previously');
               // Show success dialog anyway
               _showSuccessDialog();
             }
-            developer.log(
-              'Payment completed successfully for CheckoutRequestID: $_checkoutRequestID',
-              name: 'PaymentScreen',
-            );
+            _logger.i('Payment completed successfully for CheckoutRequestID: $_checkoutRequestID');
           } else if (responseData['status'] == 'failed') {
             setState(() {
               _paymentStatus = PaymentStatus.failed;
@@ -456,15 +487,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
             _showErrorDialog(_errorMessage);
 
             // Don't create an order for failed transactions from check status
-            developer.log(
-              'Payment failed for CheckoutRequestID: ${responseData['checkoutRequestID']} - Not creating order',
-              name: 'PaymentScreen',
-            );
+            _logger.w('Payment failed for CheckoutRequestID: ${responseData['checkoutRequestID']} - Not creating order');
           } else if (responseData['status'] == 'pending') {
-            developer.log(
-              'Transaction still pending for txn_unique: $_txnUnique',
-              name: 'PaymentScreen',
-            );
+            _logger.i('Transaction still pending for txn_unique: $_txnUnique');
             // Do nothing for pending state, keep UI as is with loading indicator
             // No dialog triggered
           } else {
@@ -476,32 +501,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
             });
             _statusCheckTimer?.cancel();
             _showErrorDialog(_errorMessage);
-            developer.log(
-              'Unknown status received - Message: $_errorMessage',
-              name: 'PaymentScreen',
-            );
+            _logger.w('Unknown status received - Message: $_errorMessage');
           }
         } catch (e) {
-          developer.log(
-            'Error parsing status check response: $e',
-            name: 'PaymentScreen',
-            error: e,
-          );
+          _logger.e('Error parsing status check response: $e', e);
           // Continue polling in case of parsing error (might be a temporary issue)
         }
       } else {
-        developer.log(
-          'Status check failed with status code: ${response.statusCode}, Body: ${response.body}',
-          name: 'PaymentScreen',
-        );
+        _logger.e('Status check failed with status code: ${response.statusCode}, Body: ${response.body}');
         // Continue polling in case of HTTP error (might be a temporary server issue)
       }
     } catch (e) {
-      developer.log(
-        'Network error during status check: $e',
-        name: 'PaymentScreen',
-        error: e,
-      );
+      _logger.e('Network error during status check: $e', e);
       // Continue polling in case of network error
     }
   }
@@ -517,10 +528,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _errorMessage = 'No transaction unique identifier available';
         });
         _showErrorDialog(_errorMessage);
-        developer.log(
-          'Status check stopped: No txn_unique available',
-          name: 'PaymentScreen',
-        );
+        _logger.e('Status check stopped: No txn_unique available');
         return;
       }
 
@@ -536,10 +544,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           });
           timer.cancel();
           _showErrorDialog(_errorMessage);
-          developer.log(
-            'Payment timed out after 60 seconds for txn_unique: $_txnUnique',
-            name: 'PaymentScreen',
-          );
+          _logger.w('Payment timed out after 60 seconds for txn_unique: $_txnUnique');
         }
       }
     });
@@ -547,6 +552,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // Create an order with the provided receipt number (test or actual)
   Future<bool> _createOrder(String receiptNumber) async {
+    _logger.i('Creating order with receipt number: $receiptNumber for user: ${widget.userId}');
     try {
       print('Creating order with receipt number: $receiptNumber');
 
@@ -555,7 +561,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       String phoneNumber = _phoneController.text.trim();
 
       // Get cart items from the typeId which is the cartId
-      List<Map<String, dynamic>> cartItems = [];
+      List<Map<String, dynamic>> cartItemsData = [];
+      List<CartItem> orderItems = [];
       try {
         // Retrieve cart items from Firestore
         final cartDoc = await FirebaseFirestore.instance
@@ -566,7 +573,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         if (cartDoc.exists && cartDoc.data() != null) {
           final data = cartDoc.data()!;
           if (data.containsKey('items') && data['items'] is List) {
-            cartItems = List<Map<String, dynamic>>.from(
+            cartItemsData = List<Map<String, dynamic>>.from(
                 (data['items'] as List).map((item) => {
                       'product_id': item['productId'] ?? '',
                       'quantity': (item['quantity'] is int)
@@ -576,26 +583,62 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ? item['price']
                           : double.tryParse(item['price'].toString()) ?? 0.0,
                       'product_name': item['name'] ?? 'Unknown Product',
+                      // Add image URL to ensure it's stored with the order
+                      'imageUrl': item['imageUrl'] ?? '',
                     }));
+            
+            // Convert to CartItem entities for the ShopOrder
+            orderItems = cartItemsData.map((item) => CartItem(
+              id: item['product_id'] ?? '',
+              productId: item['product_id'] ?? '',
+              name: item['product_name'] ?? 'Unknown Product',
+              price: (item['price'] is double)
+                  ? item['price']
+                  : double.tryParse(item['price'].toString()) ?? 0.0,
+              quantity: (item['quantity'] is int)
+                  ? item['quantity']
+                  : int.tryParse(item['quantity'].toString()) ?? 1,
+              userId: userId,
+              imageUrl: item['imageUrl'],
+            )).toList();
           }
         }
 
-        developer.log(
-          'Retrieved ${cartItems.length} cart items for order',
-          name: 'PaymentScreen',
-        );
+        _logger.i('Retrieved ${cartItemsData.length} cart items for order');
       } catch (e) {
-        developer.log(
-          'Error retrieving cart items: $e',
-          name: 'PaymentScreen',
-          error: e,
-        );
+        _logger.e('Error retrieving cart items: $e', e);
       }
 
       // Generate a unique order ID if not present
       String orderId = 'order_${DateTime.now().millisecondsSinceEpoch}';
+      
+      // Calculate total from cart items
+      double total = 0;
+      for (var item in orderItems) {
+        total += item.price * item.quantity;
+      }
 
-      // Create order payload for API
+      // Create ShopOrder entity
+      final shopOrder = ShopOrder(
+        id: orderId,
+        userId: userId,
+        orderNumber: orderId,
+        items: orderItems,
+        total: total > 0 ? total : widget.amount, // Use calculated total or fallback to widget amount
+        status: OrderStatus.pending,
+        paymentMethod: widget.paymentType,
+        shippingAddress: phoneNumber,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      // Dispatch CreateOrderEvent to ShopBloc
+      _logger.i('Dispatching CreateOrderEvent to ShopBloc with order ID: ${shopOrder.id}');
+      _logger.i('Order contains ${shopOrder.items.length} items with total: ${shopOrder.total}');
+      _logger.d('User ID for cart clearing: ${shopOrder.userId}');
+      context.read<ShopBloc>().add(CreateOrderEvent(shopOrder));
+
+      // Create order payload for API (keep this for backend integration)
       final Map<String, dynamic> orderPayload = {
         'user_id': userId,
         'phone_number': phoneNumber,
@@ -605,76 +648,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'mpesa_receipt': receiptNumber,
         'transaction_date': DateTime.now().toIso8601String(),
         'txn_unique': _txnUnique,
-        'items': cartItems,
+        'items': cartItemsData,
         'order_id': orderId,
       };
 
-      // Create a separate order document for Firestore with proper type handling
-      // Ensure it includes all fields from the Order model plus additional required fields
-      final Map<String, dynamic> firestoreOrder = {
-        'user_id': userId,
-        'phone_number': phoneNumber,
-        'amount': double.tryParse(widget.amount.toString()) ?? 0.0,
-        'payment_type': widget.paymentType,
-        'type_id': widget.typeId,
-        'mpesa_receipt': receiptNumber,
-        'receiptNumber': receiptNumber, // Add this to match Order model
-        'transaction_date': Timestamp.now(),
-        'txn_unique': _txnUnique,
-        'items': cartItems,
-        'orderNumber': orderId, // Add this to match Order model
-        'total': double.tryParse(widget.amount.toString()) ??
-            0.0, // Add this to match Order model
-        'status': 'pending', // Add default status to match Order model
-        'paymentMethod': widget.paymentType, // Add this to match Order model
-        'shippingAddress': phoneNumber, // Use phone as fallback if no address
-        'cartItemIds':
-            cartItems.map((item) => item['product_id'] ?? '').toList(),
-        'createdAt': Timestamp.now(), // Add this to match Order model
-        'updatedAt': Timestamp.now(), // Add this to match Order model
-      };
-
       // Log the order being created
-      developer.log(
-        'Creating order with payload: ${jsonEncode(orderPayload)}',
-        name: 'PaymentScreen',
-      );
-
-      // First, check if an order with this transaction ID already exists
-      try {
-        final existingOrders = await FirebaseFirestore.instance
-            .collection('orders')
-            .where('txn_unique', isEqualTo: _txnUnique)
-            .get();
-
-        if (existingOrders.docs.isNotEmpty) {
-          developer.log(
-            'Order with txn_unique $_txnUnique already exists. Skipping creation.',
-            name: 'PaymentScreen',
-          );
-          return true; // Order already exists, consider it successful
-        }
-
-        // Set a document ID based on orderId or generate a new one
-        await FirebaseFirestore.instance
-            .collection('orders')
-            .doc(orderId)
-            .set(firestoreOrder);
-
-        print('Order created successfully: $orderId');
-
-        developer.log(
-          'Order created successfully - ID: $orderId',
-          name: 'PaymentScreen',
-        );
-      } catch (e) {
-        developer.log(
-          'Error saving order to Firestore: $e',
-          name: 'PaymentScreen',
-          error: e,
-        );
-        // Continue anyway to try the backend API
-      }
+      _logger.i('Creating order with payload: ${jsonEncode(orderPayload)}');
 
       // Now also send order creation request to backend API
       final response = await http.post(
@@ -684,151 +663,64 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
 
       // Log the response
-      developer.log(
-        'Order creation response: Status=${response.statusCode}, Body=${response.body}',
-        name: 'PaymentScreen',
-      );
+      _logger.i('Order creation response: Status=${response.statusCode}, Body=${response.body}');
 
       if (response.statusCode == 200) {
         try {
           final responseData = jsonDecode(response.body);
 
           if (responseData['status'] == 'success') {
-            developer.log(
-              'Order created successfully with ID: ${responseData['order_id']}',
-              name: 'PaymentScreen',
-            );
+            _logger.i('Order created successfully with ID: ${responseData['order_id']}');
 
             // Set receipt number in state for display
             setState(() {
               _mpesaReceiptNumber = receiptNumber;
             });
 
-            // Since we've already saved to Firestore, we can return true even if the API fails
             return true; // Order created successfully
           } else {
-            developer.log(
-              'Order creation API call failed: ${responseData['message']}',
-              name: 'PaymentScreen',
-            );
-            // Return true anyway since we already saved to Firestore
+            _logger.w('Order creation API call failed: ${responseData['message']}');
+            // Return true anyway since we already dispatched to ShopBloc
             return true;
           }
         } catch (e) {
-          developer.log(
-            'Error parsing order creation response: $e',
-            name: 'PaymentScreen',
-            error: e,
-          );
-          // Return true anyway since we already saved to Firestore
+          _logger.e('Error parsing order creation response: $e', e);
+          // Return true anyway since we already dispatched to ShopBloc
           return true;
         }
       } else {
-        developer.log(
-          'Order creation failed with status code: ${response.statusCode}',
-          name: 'PaymentScreen',
-        );
-        // Return true anyway since we already saved to Firestore
+        _logger.e('Order creation failed with status code: ${response.statusCode}');
+        // Return true anyway since we already dispatched to ShopBloc
         return true;
       }
     } catch (e) {
-      developer.log(
-        'Error creating order: $e',
-        name: 'PaymentScreen',
-        error: e,
-      );
+      _logger.e('Error creating order: $e', e);
 
-      // Try to save a minimal order to Firestore even on error
+      // Try to create a fallback order through ShopBloc
       try {
         // Create a fallback order ID if one wasn't set
         String fallbackOrderId =
             'order_${DateTime.now().millisecondsSinceEpoch}';
 
-        // Get cart items from the typeId which is the cartId
-        List<Map<String, dynamic>> fallbackCartItems = [];
-        try {
-          // Retrieve cart items from Firestore
-          final cartDoc = await FirebaseFirestore.instance
-              .collection('carts')
-              .doc(widget.typeId)
-              .get();
+        // Create a minimal ShopOrder
+        final fallbackOrder = ShopOrder(
+          id: fallbackOrderId,
+          userId: widget.userId.isEmpty ? 'guest_user' : widget.userId,
+          orderNumber: fallbackOrderId,
+          items: [], // Empty items list as fallback
+          total: widget.amount,
+          status: OrderStatus.pending,
+          paymentMethod: widget.paymentType,
+          shippingAddress: _phoneController.text.trim(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
 
-          if (cartDoc.exists && cartDoc.data() != null) {
-            final data = cartDoc.data()!;
-            if (data.containsKey('items') && data['items'] is List) {
-              fallbackCartItems = List<Map<String, dynamic>>.from(
-                  (data['items'] as List).map((item) => {
-                        'product_id': item['productId'] ?? '',
-                        'quantity': (item['quantity'] is int)
-                            ? item['quantity']
-                            : int.tryParse(item['quantity'].toString()) ?? 1,
-                        'price': (item['price'] is double)
-                            ? item['price']
-                            : double.tryParse(item['price'].toString()) ?? 0.0,
-                        'product_name': item['name'] ?? 'Unknown Product',
-                        'id': item['id'] ?? '',
-                        'name': item['name'] ?? 'Unknown Product',
-                        'imageUrl': item['imageUrl'] ?? ''
-                      }));
-            }
-          }
-
-          developer.log(
-            'Retrieved ${fallbackCartItems.length} cart items for fallback order',
-            name: 'PaymentScreen',
-          );
-        } catch (e) {
-          developer.log(
-            'Error retrieving cart items for fallback order: $e',
-            name: 'PaymentScreen',
-            error: e,
-          );
-        }
-
-        // Create a complete order that matches the Order model plus additional required fields
-        Map<String, dynamic> fallbackOrder = {
-          'user_id': widget.userId.isEmpty ? 'guest_user' : widget.userId,
-          'phone_number': _phoneController.text.trim(),
-          'amount': double.tryParse(widget.amount.toString()) ?? 0.0,
-          'mpesa_receipt': receiptNumber,
-          'receiptNumber': receiptNumber, // Add this to match Order model
-          'transaction_date': Timestamp.now(),
-          'items': fallbackCartItems,
-          'txn_unique': _txnUnique, // Add transaction ID to prevent duplicates
-          'payment_type': widget.paymentType,
-          'type_id': widget.typeId,
-          'orderNumber': fallbackOrderId, // Add this to match Order model
-          'total': double.tryParse(widget.amount.toString()) ??
-              0.0, // Add this to match Order model
-          'status': 'pending', // Add default status to match Order model
-          'paymentMethod': widget.paymentType, // Add this to match Order model
-          'shippingAddress': _phoneController.text
-              .trim(), // Use phone as fallback if no address
-          'cartItemIds':
-              fallbackCartItems.map((item) => item['id'] ?? '').toList(),
-          'createdAt': Timestamp.now(), // Add this to match Order model
-          'updatedAt': Timestamp.now(), // Add this to match Order model
-        };
-
-        // Check if an order with this transaction ID already exists
-        final existingOrders = await FirebaseFirestore.instance
-            .collection('orders')
-            .where('txn_unique', isEqualTo: _txnUnique)
-            .get();
-
-        if (existingOrders.docs.isNotEmpty) {
-          developer.log(
-            'Fallback order with txn_unique $_txnUnique already exists. Skipping creation.',
-            name: 'PaymentScreen',
-          );
-          return true; // Order already exists, consider it successful
-        }
-
-        // Save to Firestore
-        await FirebaseFirestore.instance
-            .collection('orders')
-            .doc(fallbackOrderId)
-            .set(fallbackOrder);
+        // Dispatch CreateOrderEvent to ShopBloc
+        _logger.i('Dispatching CreateOrderEvent with FALLBACK order ID: ${fallbackOrder.id}');
+        _logger.w('Fallback order has empty items list but will still trigger cart clearing');
+        _logger.d('Fallback order user ID for cart clearing: ${fallbackOrder.userId}');
+        context.read<ShopBloc>().add(CreateOrderEvent(fallbackOrder));
 
         // Print to both console and developer log for visibility
         print('===== FALLBACK ORDER CREATED =====');
@@ -838,22 +730,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         print('Phone: ${_phoneController.text.trim()}');
         print('Receipt: $receiptNumber');
         print('Transaction ID: $_txnUnique');
-        print('Cart Items: ${fallbackCartItems.length}');
         print('Total Amount: ${widget.amount}');
         print('==================================');
 
-        developer.log(
-          'FALLBACK ORDER CREATED - ID: $fallbackOrderId | User: ${widget.userId} | Receipt: $receiptNumber | TXN: $_txnUnique | Items: ${fallbackCartItems.length}',
-          name: 'PaymentScreen',
-        );
+        _logger.i('FALLBACK ORDER CREATED - ID: $fallbackOrderId | User: ${widget.userId} | Receipt: $receiptNumber | TXN: $_txnUnique');
 
-        return true; // We created at least a minimal order
+        return true; // We created at least a minimal order through ShopBloc
       } catch (innerError) {
-        developer.log(
-          'Failed to create even fallback order: $innerError',
-          name: 'PaymentScreen',
-          error: innerError,
-        );
+        _logger.e('Failed to create even fallback order: $innerError', innerError);
         return false;
       }
     }
@@ -861,6 +745,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _showSuccessDialog() async {
     bool orderSuccess = false;
+    
+    setState(() {
+      _paymentStatus = PaymentStatus.success;
+    });
 
     // Order should already be created by this point
     // If not, ensure we create it with the receipt number
@@ -892,22 +780,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
               'Payment has been received successfully!',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            if (_mpesaReceiptNumber != null) ...[
-              const SizedBox(height: 8),
+            if (_mpesaReceiptNumber != null) ...[              const SizedBox(height: 8),
               Text(
                 'M-Pesa Receipt: $_mpesaReceiptNumber',
                 style:
                     TextStyle(color: Theme.of(context).colorScheme.onSurface),
               ),
             ],
-            if (orderSuccess) ...[
-              const SizedBox(height: 8),
+            if (orderSuccess) ...[              const SizedBox(height: 8),
               Text(
                 'Order has been created successfully!',
                 style: TextStyle(color: AppTheme.successColor ?? Colors.green),
               ),
-            ] else ...[
-              const SizedBox(height: 8),
+            ] else ...[              const SizedBox(height: 8),
               Text(
                 'Order creation pending. Check orders page later.',
                 style: TextStyle(color: Colors.orange),
@@ -933,9 +818,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _testOrderCreation(String receiptNumber) async {
     // REMOVED: This method was causing duplicate orders
     // We now use _createOrder directly which is more reliable
-    developer.log(
-        'Test order creation called but skipped to prevent duplicates',
-        name: 'PaymentScreen');
+    _logger.i('Test order creation called but skipped to prevent duplicates');
     return;
   }
 
@@ -960,26 +843,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
           orderSuccess = await _createOrder('MPESA01');
           _orderCreated = true;
           print('Test order creation result: $orderSuccess');
-          developer.log(
-              'Creating test order in error dialog with MPESA01. Success: $orderSuccess',
-              name: 'PaymentScreen');
+          _logger.i('Creating test order in error dialog with MPESA01. Success: $orderSuccess');
         } else {
           print('Found existing order with transaction ID: $_txnUnique');
           for (var doc in existingOrders.docs) {
             print('Existing order ID: ${doc.id}');
           }
-          developer.log(
-              'Test order already exists with txn_unique $_txnUnique. Skipping creation.',
-              name: 'PaymentScreen');
+          _logger.i('Test order already exists with txn_unique $_txnUnique. Skipping creation.');
           _orderCreated = true;
           orderSuccess = true;
         }
       } catch (e) {
-        developer.log(
-          'Error checking for existing orders: $e',
-          name: 'PaymentScreen',
-          error: e,
-        );
+        _logger.e('Error checking for existing orders: $e', e);
         print(
             'Error while checking for existing orders. Creating test order anyway.');
         orderSuccess = await _createOrder('MPESA01');
@@ -1263,7 +1138,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: ElevatedButton(
                 onPressed: _isLoading || _paymentStatus == PaymentStatus.pending
                     ? null
-                    : _processPayment,
+                    : _startPayment,
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       AppTheme.secondaryColor, // Use yellowish secondary color

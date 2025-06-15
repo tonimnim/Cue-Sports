@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../../../../core/config/theme.dart';
 import '../../domain/entities/tournament.dart';
+import '../../../auth/domain/entities/user.dart' as app_user;
 
 class TournamentCard extends StatelessWidget {
   final Tournament tournament;
   final bool isFeatured;
   final VoidCallback? onTap;
   final VoidCallback? onRegister;
+  final app_user.User? currentUser;
 
   const TournamentCard({
     Key? key,
@@ -14,6 +17,7 @@ class TournamentCard extends StatelessWidget {
     this.isFeatured = false,
     this.onTap,
     this.onRegister,
+    this.currentUser,
   }) : super(key: key);
 
   @override
@@ -96,12 +100,12 @@ class TournamentCard extends StatelessWidget {
               const SizedBox(height: 8),
               _buildDetailRow(
                 Icons.location_on,
-                tournament.venue,
+                tournament.primaryVenue,
               ),
               const SizedBox(height: 8),
               _buildDetailRow(
                 Icons.people,
-                '${tournament.currentPlayers} Players',
+                '${tournament.currentPlayerCount} Players',
               ),
               const SizedBox(height: 8),
               _buildDetailRow(
@@ -121,31 +125,74 @@ class TournamentCard extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Register button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed:
-                      tournament.isOpenForRegistration ? onRegister : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentColor,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+              // Register button or status (only for players)
+              if (_canUserRegister())
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed:
+                        tournament.isOpenForRegistration ? onRegister : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentColor,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    tournament.isOpenForRegistration
-                        ? 'Register Now - ${_formatAmount(tournament.entryFee)}'
-                        : 'Registration Closed',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                    child: Text(
+                      tournament.isOpenForRegistration
+                          ? 'Register Now - ${_formatAmount(tournament.entryFee)}'
+                          : 'Registration Closed',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
-              ),
+              // Already registered status
+              if (_isUserAlreadyRegistered())
+                SizedBox(
+                  width: double.infinity,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    ),
+                    child: const Text(
+                      '✓ Already Registered',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              // Info message for fans
+              if (!_canUserRegister() && currentUser?.isFan == true)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: const Text(
+                    'Upgrade to Player to register for tournaments',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
             ],
           ),
         ),
@@ -216,7 +263,7 @@ class TournamentCard extends StatelessWidget {
                   Expanded(
                     child: _buildDetailRow(
                       Icons.location_on,
-                      tournament.venue,
+                      tournament.primaryVenue,
                       isCompact: true,
                     ),
                   ),
@@ -228,7 +275,7 @@ class TournamentCard extends StatelessWidget {
                   Expanded(
                     child: _buildDetailRow(
                       Icons.people,
-                      '${tournament.currentPlayers}/${tournament.maxPlayers == 0 ? '∞' : tournament.maxPlayers} players',
+                      '${tournament.currentPlayerCount}/${tournament.maxPlayers == 0 ? '∞' : tournament.maxPlayers} players',
                       isCompact: true,
                     ),
                   ),
@@ -286,35 +333,73 @@ class TournamentCard extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    flex: 1,
-                    child: ElevatedButton(
-                      onPressed:
-                          tournament.isOpenForRegistration ? onRegister : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentColor,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+                  if (_canUserRegister())
+                    Expanded(
+                      flex: 1,
+                      child: ElevatedButton(
+                        onPressed:
+                            tournament.isOpenForRegistration ? onRegister : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentColor,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: FittedBox(
-                        child: Text(
-                          tournament.isOpenForRegistration
-                              ? 'Register'
-                              : 'Full',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                        child: FittedBox(
+                          child: Text(
+                            tournament.isOpenForRegistration
+                                ? 'Register'
+                                : 'Full',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+                  if (_isUserAlreadyRegistered())
+                    Expanded(
+                      flex: 1,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.green.withOpacity(0.3)),
+                        ),
+                        child: const Text(
+                          '✓ Registered',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  if (!_canUserRegister() && !_isUserAlreadyRegistered())
+                    Expanded(
+                      flex: 1,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          currentUser?.isFan == true ? 'Fans Only' : 'View Only',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -366,10 +451,6 @@ class TournamentCard extends StatelessWidget {
         badgeColor = Colors.orange;
         statusText = 'CLOSED';
         break;
-      case TournamentStatus.in_progress:
-        badgeColor = Colors.purple;
-        statusText = 'LIVE';
-        break;
       case TournamentStatus.completed:
         badgeColor = Colors.grey;
         statusText = 'COMPLETED';
@@ -383,7 +464,7 @@ class TournamentCard extends StatelessWidget {
         statusText = 'DRAFT';
         break;
       case TournamentStatus.active:
-        badgeColor = Colors.blue;
+        badgeColor = Colors.purple;
         statusText = 'ACTIVE';
         break;
     }
@@ -413,5 +494,37 @@ class TournamentCard extends StatelessWidget {
     } else {
       return 'KSh ${amount.toStringAsFixed(0)}';
     }
+  }
+
+  /// Check if the current user can register for tournaments
+  bool _canUserRegister() {
+    // If no user provided, check if firebase user exists and assume they can register
+    if (currentUser == null) {
+      final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+      if (firebaseUser == null) return false;
+      
+      // Check if firebase user is already registered
+      return !tournament.isUserRegistered(firebaseUser.uid);
+    }
+    
+    // Only players can register for tournaments, and only if not already registered
+    final user = currentUser;
+    if (user == null) return false;
+    return user.isPlayer && !tournament.isUserRegistered(user.id);
+  }
+
+  /// Check if current user is already registered
+  bool _isUserAlreadyRegistered() {
+    final user = currentUser;
+    if (user != null) {
+      return tournament.isUserRegistered(user.id);
+    }
+    
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (firebaseUser != null) {
+      return tournament.isUserRegistered(firebaseUser.uid);
+    }
+    
+    return false;
   }
 }

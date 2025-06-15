@@ -7,6 +7,7 @@ class CartItem {
   final int quantity;
   final String? imageUrl;
   final Map<String, dynamic>? metadata;
+  final String userId;
 
   const CartItem({
     required this.id,
@@ -14,6 +15,7 @@ class CartItem {
     required this.name,
     required this.price,
     required this.quantity,
+    required this.userId,
     this.imageUrl,
     this.metadata,
   });
@@ -27,6 +29,7 @@ class CartItem {
     int? quantity,
     String? imageUrl,
     Map<String, dynamic>? metadata,
+    String? userId,
   }) {
     return CartItem(
       id: id ?? this.id,
@@ -36,6 +39,7 @@ class CartItem {
       quantity: quantity ?? this.quantity,
       imageUrl: imageUrl ?? this.imageUrl,
       metadata: metadata ?? this.metadata,
+      userId: userId ?? this.userId,
     );
   }
 
@@ -49,6 +53,7 @@ class CartItem {
       'quantity': quantity,
       'imageUrl': imageUrl,
       'metadata': metadata,
+      'userId': userId,
     };
   }
 
@@ -62,6 +67,7 @@ class CartItem {
       quantity: map['quantity'] as int,
       imageUrl: map['imageUrl'] as String?,
       metadata: map['metadata'] as Map<String, dynamic>?,
+      userId: map['userId'] as String? ?? '',
     );
   }
 
@@ -76,4 +82,4 @@ class CartItem {
 
   @override
   int get hashCode => id.hashCode;
-} 
+}

@@ -4,11 +4,10 @@ enum TournamentStatus {
   upcoming,
   registration_open,
   registration_closed,
-  in_progress,
+  active,
   completed,
   cancelled,
   draft,
-  active,
 }
 
 enum TournamentType {
@@ -19,79 +18,191 @@ enum TournamentType {
   sponsored,
 }
 
+/// Venue information for tournaments
+class TournamentVenue {
+  final String id;
+  final String name;
+  final String address;
+  final String? communityId; // For multi-venue tournaments
+  final String? contactInfo;
+  final int? capacity;
+
+  const TournamentVenue({
+    required this.id,
+    required this.name,
+    required this.address,
+    this.communityId,
+    this.contactInfo,
+    this.capacity,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'address': address,
+      'communityId': communityId,
+      'contactInfo': contactInfo,
+      'capacity': capacity,
+    };
+  }
+
+  factory TournamentVenue.fromJson(Map<String, dynamic> json) {
+    return TournamentVenue(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      address: json['address'] as String,
+      communityId: json['communityId'] as String?,
+      contactInfo: json['contactInfo'] as String?,
+      capacity: json['capacity'] as int?,
+    );
+  }
+}
+
+/// Access control for sponsored/private tournaments
+class TournamentAccess {
+  final bool isPublic;
+  final List<String> allowedCommunityIds; // Communities that can participate
+  final List<String> allowedUserIds; // Manually added users
+  final String? restrictionCriteria; // e.g., "constituency_players_only"
+  final String? restrictionDescription; // Human readable description
+
+  const TournamentAccess({
+    this.isPublic = true,
+    this.allowedCommunityIds = const [],
+    this.allowedUserIds = const [],
+    this.restrictionCriteria,
+    this.restrictionDescription,
+  });
+
+  /// Check if a user can access this tournament
+  bool canUserAccess(String userId, List<String> userCommunityIds) {
+    if (isPublic) return true;
+
+    // Check if user is manually allowed
+    if (allowedUserIds.contains(userId)) return true;
+
+    // Check if user's community is allowed
+    if (allowedCommunityIds.isNotEmpty) {
+      return userCommunityIds.any((id) => allowedCommunityIds.contains(id));
+    }
+
+    return false;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'isPublic': isPublic,
+      'allowedCommunityIds': allowedCommunityIds,
+      'allowedUserIds': allowedUserIds,
+      'restrictionCriteria': restrictionCriteria,
+      'restrictionDescription': restrictionDescription,
+    };
+  }
+
+  factory TournamentAccess.fromJson(Map<String, dynamic> json) {
+    return TournamentAccess(
+      isPublic: json['isPublic'] as bool? ?? true,
+      allowedCommunityIds: List<String>.from(json['allowedCommunityIds'] ?? []),
+      allowedUserIds: List<String>.from(json['allowedUserIds'] ?? []),
+      restrictionCriteria: json['restrictionCriteria'] as String?,
+      restrictionDescription: json['restrictionDescription'] as String?,
+    );
+  }
+}
+
 class Tournament extends Equatable {
+  // Core Identity
   final String id;
   final String name;
   final String description;
+
+  // Administrative
   final String? createdByAdminId;
-  final TournamentType type;
-  final String location;
-  final DateTime startDate;
-  final DateTime? endDate;
-  final int maxPlayers;
-  final double entryFee;
-  final bool isFeatured;
-  final bool isNational;
-  final double prizePool;
-  final String venue;
-  final int currentPlayers;
-  final String? sponsorName;
-  final List<String> rules;
-  final String? bannerImageUrl;
-  final String? youtubeChannelId;
-  final List<String> registeredUserIds;
-  final TournamentStatus status;
-  final bool isPublic;
-  final List<String> communityIds;
-  final String? imageUrl;
-  final Map<String, dynamic>? prizeStructure;
+  final String createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final String createdBy;
+
+  // Type & Status
+  final TournamentType type;
+  final TournamentStatus status;
+
+  // Business Logic
+  final int maxPlayers;
+  final double entryFee;
+  final double prizePool;
+  final Map<String, dynamic>? prizeStructure;
+
+  // Timing
+  final DateTime startDate;
+  final DateTime? endDate;
+
+  // Location & Venues (Supporting multi-venue for national tournaments)
+  final String location; // General location description
+  final List<TournamentVenue> venues; // Multiple venues support
+
+  // Access Control (Supporting sponsored tournaments with restrictions)
+  final TournamentAccess access;
+
+  // Features
+  final bool isFeatured;
+  final bool isNational;
+  final String? sponsorName;
+  final List<String> rules;
+
+  // Registration Management (Race condition safe)
+  final List<String> registeredUserIds;
+
+  // Search & Discovery
+  final Map<String, dynamic> searchKeywords;
 
   const Tournament({
     required this.id,
     required this.name,
     this.description = '',
     this.createdByAdminId,
-    required this.type,
-    required this.location,
-    required this.startDate,
-    this.endDate,
-    required this.maxPlayers,
-    required this.entryFee,
-    this.isFeatured = false,
-    this.isNational = false,
-    this.prizePool = 0.0,
-    this.venue = '',
-    this.currentPlayers = 0,
-    this.sponsorName,
-    this.rules = const [],
-    this.bannerImageUrl,
-    this.youtubeChannelId,
-    this.registeredUserIds = const [],
-    required this.status,
-    this.isPublic = true,
-    this.communityIds = const [],
-    this.imageUrl,
-    this.prizeStructure,
+    required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
-    required this.createdBy,
+    required this.type,
+    required this.status,
+    required this.maxPlayers,
+    required this.entryFee,
+    this.prizePool = 0.0,
+    this.prizeStructure,
+    required this.startDate,
+    this.endDate,
+    required this.location,
+    this.venues = const [],
+    this.access = const TournamentAccess(),
+    this.isFeatured = false,
+    this.isNational = false,
+    this.sponsorName,
+    this.rules = const [],
+    this.registeredUserIds = const [],
+    this.searchKeywords = const {},
   });
 
-  // Helper getters
+  // Helper getters with null safety
   int get currentPlayerCount => registeredUserIds.length;
-  bool get isFull => currentPlayerCount >= maxPlayers && maxPlayers > 0;
+
+  bool get isFull => maxPlayers > 0 && currentPlayerCount >= maxPlayers;
+
+  bool get hasMultipleVenues => venues.length > 1;
+
+  String get primaryVenue => venues.isNotEmpty ? venues.first.name : location;
+
   bool get canRegister =>
       status == TournamentStatus.registration_open &&
       !isFull &&
       startDate.isAfter(DateTime.now());
 
   bool get isOpenForRegistration => canRegister;
+
   bool get hasStarted =>
-      status == TournamentStatus.in_progress ||
+      status == TournamentStatus.active ||
       status == TournamentStatus.completed;
+
   int get spotsRemaining =>
       maxPlayers > 0 ? maxPlayers - currentPlayerCount : 999;
 
@@ -117,7 +228,7 @@ class Tournament extends Equatable {
     if (startDate.day == endDate!.day &&
         startDate.month == endDate!.month &&
         startDate.year == endDate!.year) {
-      return '${_formatDate(startDate)}';
+      return _formatDate(startDate);
     }
     return '${_formatDate(startDate)} - ${_formatDate(endDate!)}';
   }
@@ -140,75 +251,78 @@ class Tournament extends Equatable {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  bool isUserRegistered(String userId) {
+  /// Check if user is registered (null-safe)
+  bool isUserRegistered(String? userId) {
+    if (userId == null) return false;
     return registeredUserIds.contains(userId);
   }
 
-  bool isVisibleToUser(String userId, List<String> userCommunityIds) {
-    if (isPublic) return true;
-    if (communityIds.isEmpty) return true;
-    return communityIds.any((id) => userCommunityIds.contains(id));
+  /// Check if user can access this tournament (improved visibility logic)
+  bool isVisibleToUser(String? userId, List<String> userCommunityIds) {
+    if (userId == null) return access.isPublic;
+    return access.canUserAccess(userId, userCommunityIds);
   }
+
+  /// Get venue for specific community (for multi-venue tournaments)
+  TournamentVenue? getVenueForCommunity(String communityId) {
+    final matchingVenues = venues.where((v) => v.communityId == communityId);
+    return matchingVenues.isEmpty ? null : matchingVenues.first;
+  }
+
+  /// Check if tournament is restricted to specific criteria
+  bool get hasAccessRestrictions => !access.isPublic;
 
   Tournament copyWith({
     String? id,
     String? name,
     String? description,
     String? createdByAdminId,
-    TournamentType? type,
-    String? location,
-    DateTime? startDate,
-    DateTime? endDate,
-    int? maxPlayers,
-    double? entryFee,
-    bool? isFeatured,
-    bool? isNational,
-    double? prizePool,
-    String? venue,
-    int? currentPlayers,
-    String? sponsorName,
-    List<String>? rules,
-    String? bannerImageUrl,
-    String? youtubeChannelId,
-    List<String>? registeredUserIds,
-    TournamentStatus? status,
-    bool? isPublic,
-    List<String>? communityIds,
-    String? imageUrl,
-    Map<String, dynamic>? prizeStructure,
+    String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
-    String? createdBy,
+    TournamentType? type,
+    TournamentStatus? status,
+    int? maxPlayers,
+    double? entryFee,
+    double? prizePool,
+    Map<String, dynamic>? prizeStructure,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? location,
+    List<TournamentVenue>? venues,
+    TournamentAccess? access,
+    bool? isFeatured,
+    bool? isNational,
+    String? sponsorName,
+    List<String>? rules,
+    List<String>? registeredUserIds,
+    Map<String, dynamic>? searchKeywords,
   }) {
     return Tournament(
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
       createdByAdminId: createdByAdminId ?? this.createdByAdminId,
-      type: type ?? this.type,
-      location: location ?? this.location,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
-      maxPlayers: maxPlayers ?? this.maxPlayers,
-      entryFee: entryFee ?? this.entryFee,
-      isFeatured: isFeatured ?? this.isFeatured,
-      isNational: isNational ?? this.isNational,
-      prizePool: prizePool ?? this.prizePool,
-      venue: venue ?? this.venue,
-      currentPlayers: currentPlayers ?? this.currentPlayers,
-      sponsorName: sponsorName ?? this.sponsorName,
-      rules: rules ?? this.rules,
-      bannerImageUrl: bannerImageUrl ?? this.bannerImageUrl,
-      youtubeChannelId: youtubeChannelId ?? this.youtubeChannelId,
-      registeredUserIds: registeredUserIds ?? this.registeredUserIds,
-      status: status ?? this.status,
-      isPublic: isPublic ?? this.isPublic,
-      communityIds: communityIds ?? this.communityIds,
-      imageUrl: imageUrl ?? this.imageUrl,
-      prizeStructure: prizeStructure ?? this.prizeStructure,
+      createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      createdBy: createdBy ?? this.createdBy,
+      type: type ?? this.type,
+      status: status ?? this.status,
+      maxPlayers: maxPlayers ?? this.maxPlayers,
+      entryFee: entryFee ?? this.entryFee,
+      prizePool: prizePool ?? this.prizePool,
+      prizeStructure: prizeStructure ?? this.prizeStructure,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      location: location ?? this.location,
+      venues: venues ?? this.venues,
+      access: access ?? this.access,
+      isFeatured: isFeatured ?? this.isFeatured,
+      isNational: isNational ?? this.isNational,
+      sponsorName: sponsorName ?? this.sponsorName,
+      rules: rules ?? this.rules,
+      registeredUserIds: registeredUserIds ?? this.registeredUserIds,
+      searchKeywords: searchKeywords ?? this.searchKeywords,
     );
   }
 
@@ -218,29 +332,25 @@ class Tournament extends Equatable {
         name,
         description,
         createdByAdminId,
-        type,
-        location,
-        startDate,
-        endDate,
-        maxPlayers,
-        entryFee,
-        isFeatured,
-        isNational,
-        prizePool,
-        venue,
-        currentPlayers,
-        sponsorName,
-        rules,
-        bannerImageUrl,
-        youtubeChannelId,
-        registeredUserIds,
-        status,
-        isPublic,
-        communityIds,
-        imageUrl,
-        prizeStructure,
+        createdBy,
         createdAt,
         updatedAt,
-        createdBy,
+        type,
+        status,
+        maxPlayers,
+        entryFee,
+        prizePool,
+        prizeStructure,
+        startDate,
+        endDate,
+        location,
+        venues,
+        access,
+        isFeatured,
+        isNational,
+        sponsorName,
+        rules,
+        registeredUserIds,
+        searchKeywords,
       ];
 }

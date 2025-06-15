@@ -6,6 +6,7 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../domain/entities/payment.dart';
 import '../../services/tinypesa_service.dart';
 import '../../services/payment_callback_service.dart';
+import '../../../shop/presentation/bloc/shop_bloc.dart';
 import 'payment_event.dart';
 import 'payment_state.dart';
 
@@ -14,6 +15,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   final TinyPesaService _tinyPesaService;
   final LoggerService _logger = di.sl<LoggerService>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ShopBloc? shopBloc;
 
   // Timers and subscriptions for proper cleanup
   Timer? _pollTimer;
@@ -25,6 +27,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
 
   PaymentBloc({
     TinyPesaService? tinyPesaService,
+    this.shopBloc,
   })  : _tinyPesaService = tinyPesaService ?? TinyPesaService(),
         super(PaymentState.initial()) {
     on<InitiatePaymentEvent>(_onInitiatePayment);
@@ -112,30 +115,52 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
         _startPolling(transactionId);
       } else {
         // Payment initiation failed
+        // Format error message to include 'TinyPesa API error' prefix
+        final errorMessage = 'TinyPesa API error: ${response.message}';
+        
+        // Mark payment as failed instead of treating it as success
         final failedPayment = payment.copyWith(
           status: PaymentStatus.failed,
-          errorMessage: response.message,
+          errorMessage: errorMessage,
           updatedAt: DateTime.now(),
         );
 
         emit(state.copyWith(
           currentPayment: failedPayment,
           status: PaymentStatus.failed,
-          errorMessage: response.message,
+          errorMessage: errorMessage,
           isLoading: false,
         ));
 
+        _logger.w('TinyPesa API error occurred: $errorMessage');
+        
         // Call failure callback
         await _handlePaymentCallback(failedPayment, false);
       }
     } catch (e, stackTrace) {
-      _logger.e('Payment initiation error: $e\n$stackTrace');
+      _logger.w('Payment initiation error: $e\n$stackTrace');
+      
+      // Format error message to include 'TinyPesa API error' prefix
+      final errorMessage = 'TinyPesa API error: ${e.toString()}';
+      
+      // Mark payment as failed
+      final failedPayment = state.currentPayment?.copyWith(
+        status: PaymentStatus.failed,
+        errorMessage: errorMessage,
+        updatedAt: DateTime.now(),
+      );
 
       emit(state.copyWith(
+        currentPayment: failedPayment,
         status: PaymentStatus.failed,
-        errorMessage: e.toString(),
+        errorMessage: errorMessage,
         isLoading: false,
       ));
+      
+      // Call failure callback if we have a payment
+      if (failedPayment != null) {
+        await _handlePaymentCallback(failedPayment, false);
+      }
     }
   }
 
@@ -397,7 +422,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
       });
 
       // Get appropriate callback service
-      final callbackService = PaymentCallbackFactory.create(payment.type);
+      final callbackService = PaymentCallbackFactory.create(payment.type, shopBloc: shopBloc);
 
       if (success) {
         await callbackService.onPaymentSuccess(payment);

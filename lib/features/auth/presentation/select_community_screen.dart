@@ -113,14 +113,16 @@ class _SelectCommunityScreenState extends State<SelectCommunityScreen> {
 
   // Process payment
   void _processPayment() {
-    if (!_paymentFormKey.currentState!.validate()) {
+    if (_paymentFormKey.currentState?.validate() != true) {
       return;
     }
 
     // Select the community first, then payment will be handled
-    context.read<AuthBloc>().add(
-      SelectCommunityEvent(communityId: _selectedCommunityId!),
-    );
+    if (_selectedCommunityId != null) {
+      context.read<AuthBloc>().add(
+        SelectCommunityEvent(communityId: _selectedCommunityId!),
+      );
+    }
   }
 
   // Go back to community selection

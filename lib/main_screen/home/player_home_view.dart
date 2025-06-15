@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:pool_billiard_app/main_screen/home/components/community_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/tournament_card.dart';
+import 'package:pool_billiard_app/main_screen/home/components/live_match_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/top_shooters_list.dart';
 import 'package:pool_billiard_app/main_screen/home/components/quick_action_component.dart';
+import 'package:pool_billiard_app/main_screen/home/services/home_service.dart';
+import 'package:pool_billiard_app/features/tournaments/data/models/tournament_model.dart';
+import 'package:pool_billiard_app/features/tournaments/data/models/match_model.dart';
+import 'package:pool_billiard_app/features/auth/domain/entities/community.dart';
 import 'package:pool_billiard_app/core/config/theme.dart';
 
-class PlayerHomeView extends StatelessWidget {
+class PlayerHomeView extends StatefulWidget {
   final String userName;
   final String? communityName;
   final String? userImageUrl;
@@ -30,6 +35,43 @@ class PlayerHomeView extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<PlayerHomeView> createState() => _PlayerHomeViewState();
+}
+
+class _PlayerHomeViewState extends State<PlayerHomeView> {
+  // Home data management
+  HomePageData? _homeData;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHomeData();
+  }
+
+  Future<void> _loadHomeData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // TODO: Inject HomeService through dependency injection
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -45,7 +87,7 @@ class PlayerHomeView extends StatelessWidget {
           const SizedBox(height: 24),
           // Live tournaments section
           _buildSectionHeader('Live tournaments',
-              onSeeAllTap: onTournamentsSeeAllTap),
+              onSeeAllTap: widget.onTournamentsSeeAllTap),
           const SizedBox(height: 16),
           _buildTournamentsCarousel(context),
           const SizedBox(height: 24),
@@ -54,8 +96,8 @@ class PlayerHomeView extends StatelessWidget {
             onFindMatchTap: () {
               // TODO: Navigate to find match screen
             },
-            onCommunityTap: onCommunitiesSeeAllTap,
-            onTournamentsTap: onTournamentsSeeAllTap,
+            onCommunityTap: widget.onCommunitiesSeeAllTap,
+            onTournamentsTap: widget.onTournamentsSeeAllTap,
             onLeaderboardTap: () {
               // TODO: Navigate to leaderboard screen
             },
@@ -70,7 +112,7 @@ class PlayerHomeView extends StatelessWidget {
           const SizedBox(height: 24),
           // Top shooters section (now horizontal)
           _buildSectionHeader('Top Shooters This Week',
-              onSeeAllTap: onShootersSeeAllTap),
+              onSeeAllTap: widget.onShootersSeeAllTap),
           const SizedBox(height: 16),
           _buildTopShootersHorizontal(context),
           const SizedBox(
@@ -93,9 +135,9 @@ class PlayerHomeView extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
-                image: userImageUrl != null
+                image: widget.userImageUrl != null
                     ? DecorationImage(
-                        image: NetworkImage(userImageUrl!),
+                        image: NetworkImage(widget.userImageUrl!),
                         fit: BoxFit.cover,
                       )
                     : const DecorationImage(
@@ -111,12 +153,12 @@ class PlayerHomeView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  userName,
+                  widget.userName,
                   style: AppTheme.h3Style, // 18px Medium Raleway
                 ),
-                if (communityName != null) ...[
+                if (widget.communityName != null) ...[
                   Text(
-                    communityName!,
+                    widget.communityName!,
                     style: AppTheme.bodySmallStyle.copyWith(
                       color: Colors.white.withOpacity(0.8),
                     ), // 14px Regular Raleway
@@ -133,7 +175,7 @@ class PlayerHomeView extends StatelessWidget {
             color: Colors.yellow,
             size: 28,
           ),
-          onPressed: onNotificationTap,
+          onPressed: widget.onNotificationTap,
         ),
       ],
     );
@@ -180,7 +222,7 @@ class PlayerHomeView extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '#${nationalRank > 0 ? nationalRank : 3}', // Show actual rank or default to 3
+                      '#${widget.nationalRank > 0 ? widget.nationalRank : 3}', // Show actual rank or default to 3
                       style: TextStyle(
                         color: AppTheme.accentColor, // Gold color
                         fontSize: 36,
@@ -260,7 +302,7 @@ class PlayerHomeView extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${communityRank > 0 ? communityRank : 8}/10',
+                      '${widget.communityRank > 0 ? widget.communityRank : 8}/10',
                       style: AppTheme.h3Style.copyWith(
                         fontSize: 24, // Reduced from 32 to 24
                         fontWeight: FontWeight.bold,
@@ -307,33 +349,52 @@ class PlayerHomeView extends StatelessWidget {
   }
 
   Widget _buildTournamentsCarousel(BuildContext context) {
-    // Sample tournament data
-    final List<Map<String, dynamic>> tournaments = [
-      {
-        'title': 'Nairobi Premier League',
-        'round': '3 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
-        'isLive': true,
-      },
-      {
-        'title': 'Nairobi Premier League',
-        'round': '4 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
-        'isLive': true,
-      },
-      {
-        'title': 'Nairobi Premier League',
-        'round': '5 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
-        'isLive': true,
-      },
-    ];
+    if (_isLoading) {
+      return Container(
+        height: 180,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Container(
+        height: 180,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error, color: Colors.red, size: 32),
+              const SizedBox(height: 8),
+              Text(
+                'Failed to load tournaments',
+                style: const TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: _loadHomeData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final tournaments = _homeData?.activeTournaments ?? [];
+    
+    if (tournaments.isEmpty) {
+      return Container(
+        height: 180,
+        child: const Center(
+          child: Text(
+            'No active tournaments at the moment',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
       height: 180,
@@ -346,18 +407,17 @@ class PlayerHomeView extends StatelessWidget {
             padding: EdgeInsets.only(
                 right: index < tournaments.length - 1 ? 16.0 : 0),
             child: TournamentCard(
-              title: tournament['title'],
-              round: tournament['round'],
-              players: tournament['players'],
-              prize: tournament['prize'],
-              venue: tournament['venue'],
-              isLive: tournament['isLive'],
+              title: tournament.name,
+              round: 'Active Tournament',
+              players: tournament.registeredUserIds.length,
+              prize: 'KSh ${tournament.prizePool.toStringAsFixed(0)}',
+              venue: tournament.venue ?? tournament.location,
               onTap: () {
                 // Navigate to tournament details
                 Navigator.pushNamed(
                   context,
                   '/tournament-details',
-                  arguments: {'tournamentId': index.toString()},
+                  arguments: {'tournamentId': tournament.id},
                 );
               },
             ),
@@ -368,33 +428,28 @@ class PlayerHomeView extends StatelessWidget {
   }
 
   Widget _buildRecentMatchesCarousel(BuildContext context) {
-    // Sample recent matches data
-    final List<Map<String, dynamic>> recentMatches = [
-      {
-        'opponent': 'James Mwangi',
-        'timeAgo': '2 hours ago',
-        'result': 'Win',
-        'score': '8-6',
-        'points': '+250',
-        'isWin': true,
-      },
-      {
-        'opponent': 'Mark Kariuki',
-        'timeAgo': '2 hours ago',
-        'result': 'Win',
-        'score': '8-4',
-        'points': '+180',
-        'isWin': true,
-      },
-      {
-        'opponent': 'Anthony Chege',
-        'timeAgo': '2 hours ago',
-        'result': 'Loss',
-        'score': '5-8',
-        'points': '-120',
-        'isWin': false,
-      },
-    ];
+    if (_isLoading) {
+      return Container(
+        height: 100,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    final recentMatches = _homeData?.recentMatches ?? [];
+    
+    if (recentMatches.isEmpty) {
+      return Container(
+        height: 100,
+        child: const Center(
+          child: Text(
+            'No recent matches',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
       height: 100,
@@ -413,8 +468,19 @@ class PlayerHomeView extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentMatchCard(Map<String, dynamic> match) {
-    final isWin = match['isWin'] as bool;
+  Widget _buildRecentMatchCard(MatchModel match) {
+    // TODO: Get current user ID from context/state management
+    final currentUserId = 'current_user_id'; // Placeholder - should use actual user ID
+    final isPlayer1 = match.player1Id == currentUserId;
+    final opponent = isPlayer1 ? match.player2Name : match.player1Name;
+    
+    // Determine if current user won
+    final currentUserScore = isPlayer1 ? match.player1Score : match.player2Score;
+    final opponentScore = isPlayer1 ? match.player2Score : match.player1Score;
+    final isWin = currentUserScore != null && opponentScore != null && currentUserScore > opponentScore;
+    
+    // Calculate time ago
+    final timeAgo = _getTimeAgo(match.actualEndTime ?? match.createdAt);
 
     return Container(
       width: 200,
@@ -446,7 +512,7 @@ class PlayerHomeView extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    match['result'],
+                    isWin ? 'Win' : 'Loss',
                     style: AppTheme.captionStyle.copyWith(
                       color:
                           isWin ? AppTheme.successColor : AppTheme.errorColor,
@@ -456,7 +522,7 @@ class PlayerHomeView extends StatelessWidget {
                 ],
               ),
               Text(
-                match['timeAgo'],
+                timeAgo,
                 style: AppTheme.overlineStyle.copyWith(
                   color: Colors.white70,
                 ), // 10px Regular Raleway
@@ -466,7 +532,7 @@ class PlayerHomeView extends StatelessWidget {
           const SizedBox(height: 8),
           // Opponent and score
           Text(
-            'Vs ${match['opponent']}',
+            'Vs $opponent',
             style: AppTheme.bodySmallStyle.copyWith(
               fontWeight: FontWeight.w600,
             ), // 14px SemiBold Raleway
@@ -479,13 +545,13 @@ class PlayerHomeView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                match['score'],
+                '${currentUserScore ?? 0}-${opponentScore ?? 0}',
                 style: AppTheme.bodyLargeStyle.copyWith(
                   fontWeight: FontWeight.w600,
                 ), // 16px SemiBold Raleway
               ),
               Text(
-                match['points'],
+                isWin ? '+150' : '-50', // Placeholder points calculation
                 style: AppTheme.captionStyle.copyWith(
                   color: isWin ? AppTheme.successColor : AppTheme.errorColor,
                   fontWeight: FontWeight.w600,
@@ -594,5 +660,20 @@ class PlayerHomeView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
   }
 }

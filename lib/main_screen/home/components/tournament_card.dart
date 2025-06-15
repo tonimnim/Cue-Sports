@@ -7,7 +7,6 @@ class TournamentCard extends StatelessWidget {
   final int players;
   final String prize;
   final String venue;
-  final bool isLive;
   final VoidCallback onTap;
 
   const TournamentCard({
@@ -17,7 +16,6 @@ class TournamentCard extends StatelessWidget {
     required this.players,
     required this.prize,
     required this.venue,
-    this.isLive = false,
     required this.onTap,
   }) : super(key: key);
 
@@ -53,24 +51,6 @@ class TournamentCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  if (isLive) ...[
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'LIVE',
-                      style: AppTheme.overlineStyle.copyWith(
-                        color: Colors.red,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

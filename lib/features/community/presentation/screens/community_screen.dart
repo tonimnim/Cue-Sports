@@ -585,7 +585,7 @@ class _CommunityScreenState extends State<CommunityScreen>
             _buildEmptyCommunitiesGrid(),
           ],
 
-          const SizedBox(height: 100), // Bottom padding
+          const SizedBox(height: 32), // Bottom padding
         ],
       ),
     );
@@ -631,7 +631,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                 hasUserCommunity: userCommunity != null)
           else
             _buildEmptyCommunitiesGrid(),
-          const SizedBox(height: 100),
+          const SizedBox(height: 32),
         ],
       ),
     );

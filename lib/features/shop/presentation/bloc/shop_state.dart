@@ -37,6 +37,7 @@ class ShopState extends Equatable {
   });
 
   /// High-performance copyWith optimized for production scale
+  /// High-performance copyWith optimized for production scale
   ShopState copyWith({
     ShopStatus? status,
     List<Product>? products,
@@ -54,6 +55,11 @@ class ShopState extends Equatable {
     bool clearError = false,
   }) {
     final newCartItems = cartItems ?? this.cartItems;
+    // Always recalculate cartItemCount based on the current cart items
+    final updatedCartItemCount = newCartItems.isEmpty 
+        ? 0 
+        : newCartItems.fold<int>(0, (total, item) => total + item.quantity);
+        
     return ShopState(
       status: status ?? this.status,
       products: products ?? this.products,
@@ -68,8 +74,7 @@ class ShopState extends Equatable {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       isCartLoading: isCartLoading ?? this.isCartLoading,
       isProductsLoading: isProductsLoading ?? this.isProductsLoading,
-      cartItemCount:
-          newCartItems.fold<int>(0, (total, item) => total + item.quantity),
+      cartItemCount: updatedCartItemCount,
     );
   }
 

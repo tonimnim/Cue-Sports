@@ -15,6 +15,7 @@ import 'package:pool_billiard_app/features/payment/presentation/bloc/payment_blo
 import 'package:pool_billiard_app/core/di/injection_container.dart' as di;
 import 'package:pool_billiard_app/features/shop/presentation/bloc/shop_bloc.dart';
 import 'package:pool_billiard_app/features/shop/presentation/bloc/shop_event.dart';
+import 'package:pool_billiard_app/firebase/firebase_services.dart';
 
 // Import individual pages
 import '../main_screen/splash_screen.dart';
@@ -27,6 +28,9 @@ import '../features/shop/presentation/screens/bloc_cart_screen.dart';
 import '../features/shop/presentation/screens/shop_orders_screen.dart';
 
 import '../features/tournaments/presentation/tournament_screen.dart';
+import '../features/tournaments/presentation/screens/tournament_details_screen.dart';
+import '../features/tournaments/presentation/bloc/tournament_bloc.dart';
+import '../features/tournaments/domain/entities/tournament.dart';
 
 class RouteConfig {
   // Route names
@@ -51,6 +55,7 @@ class RouteConfig {
   // Feature route names
   static const String communities = '/communities';
   static const String tournaments = '/tournaments';
+  static const String tournamentDetails = '/tournament-details';
   static const String shop = '/shop';
   static const String cart = '/cart';
   static const String orders = '/orders';
@@ -205,17 +210,68 @@ class RouteConfig {
         );
       case tournaments:
         return MaterialPageRoute(
-          builder: (_) => const TournamentScreen(),
+          builder: (_) => BlocProvider(
+            create: (context) => di.sl<TournamentBloc>(),
+            child: const TournamentScreen(),
+          ),
         );
+      case tournamentDetails:
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args == null) {
+          // If no arguments provided, navigate back to tournaments
+          return MaterialPageRoute(builder: (_) => const TournamentScreen());
+        }
+        
+        // Handle different argument types
+        if (args['tournament'] != null) {
+          // Direct tournament object passed (from tournament list)
+          return MaterialPageRoute(
+            builder: (_) => BlocProvider(
+              create: (context) => di.sl<TournamentBloc>(),
+              child: TournamentDetailsScreen(
+                tournament: args['tournament'] as Tournament,
+              ),
+            ),
+          );
+        } else if (args['tournamentId'] != null) {
+          // Tournament ID passed (from home screen) - need to show error or redirect
+          return MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(title: const Text('Tournament Details')),
+              body: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.construction, size: 64, color: Colors.orange),
+                    SizedBox(height: 16),
+                    Text(
+                      'Tournament details from home screen coming soon!',
+                      style: TextStyle(fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Please use the Tournaments tab to view and register for tournaments.',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        } else {
+          // No valid tournament data
+          return MaterialPageRoute(builder: (_) => const TournamentScreen());
+        }
       case shop:
         return MaterialPageRoute(
           builder: (_) => const ShopMainScreen(),
         );
       case cart:
         return MaterialPageRoute(
-          builder: (_) => BlocProvider(
-            create: (context) =>
-                di.sl<ShopBloc>()..add(LoadCartItemsEvent('current_user')),
+          builder: (context) => BlocProvider.value(
+            value: BlocProvider.of<ShopBloc>(context)..add(LoadCartItemsEvent(di.sl<FirebaseServices>().currentUser?.uid ?? '')),
             child: const BlocCartScreen(),
           ),
         );

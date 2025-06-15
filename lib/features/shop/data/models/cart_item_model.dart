@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/cart_item.dart';
+import '../../../../firebase/firebase_services.dart';
 
 class CartItemModel extends CartItem {
   const CartItemModel({
@@ -8,6 +9,7 @@ class CartItemModel extends CartItem {
     required String name,
     required double price,
     required int quantity,
+    required String userId,
     String? imageUrl,
     Map<String, dynamic>? metadata,
   }) : super(
@@ -16,6 +18,7 @@ class CartItemModel extends CartItem {
           name: name,
           price: price,
           quantity: quantity,
+          userId: userId,
           imageUrl: imageUrl,
           metadata: metadata,
         );
@@ -30,6 +33,7 @@ class CartItemModel extends CartItem {
       quantity: data['quantity'] ?? 1,
       imageUrl: data['imageUrl'],
       metadata: data['metadata'] as Map<String, dynamic>?,
+      userId: data['userId'] ?? doc.reference.parent.parent?.id ?? '',
     );
   }
 
@@ -42,6 +46,7 @@ class CartItemModel extends CartItem {
       quantity: cartItem.quantity,
       imageUrl: cartItem.imageUrl,
       metadata: cartItem.metadata,
+      userId: cartItem.userId,
     );
   }
 
@@ -54,6 +59,7 @@ class CartItemModel extends CartItem {
       quantity: map['quantity'] ?? 1,
       imageUrl: map['imageUrl'],
       metadata: map['metadata'] as Map<String, dynamic>?,
+      userId: map['userId'] ?? '',
     );
   }
 
@@ -65,6 +71,7 @@ class CartItemModel extends CartItem {
       'quantity': quantity,
       'imageUrl': imageUrl,
       'metadata': metadata,
+      'userId': userId,
       'updatedAt': Timestamp.now(),
     };
   }
@@ -78,6 +85,7 @@ class CartItemModel extends CartItem {
       quantity: quantity,
       imageUrl: imageUrl,
       metadata: metadata,
+      userId: userId,
     );
   }
-} 
+}

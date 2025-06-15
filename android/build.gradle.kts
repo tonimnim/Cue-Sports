@@ -1,7 +1,7 @@
 // Top-level build file with common configuration
 buildscript {
     extra.apply {
-        set("kotlin_version", "2.1.0") // Compatible Kotlin version
+        set("kotlin_version", "1.8.22") // Compatible Kotlin version
     }
     // Add these lines for the Google Services plugin
     repositories {
@@ -10,6 +10,8 @@ buildscript {
     }
     dependencies {
         classpath("com.google.gms:google-services:4.4.0")
+        classpath("com.android.tools.build:gradle:8.1.4")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20")
     }
 }
 

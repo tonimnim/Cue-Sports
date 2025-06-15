@@ -19,6 +19,9 @@ import 'package:pool_billiard_app/features/shop/presentation/bloc/shop_bloc.dart
 import 'package:pool_billiard_app/features/shop/presentation/bloc/shop_event.dart';
 import 'package:pool_billiard_app/features/shop/presentation/screens/shop_main_screen.dart';
 import 'package:pool_billiard_app/features/tournaments/presentation/tournament_screen.dart';
+import 'package:pool_billiard_app/features/tournaments/presentation/bloc/tournament_bloc.dart';
+import 'package:pool_billiard_app/main_screen/home/services/home_service.dart';
+import 'package:pool_billiard_app/firebase/firebase_services.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -43,7 +46,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthAuthenticated) {
         final shopBloc = context.read<ShopBloc>();
-        shopBloc.add(LoadCartItemsEvent(authState.user.id));
+        // Use the actual user ID from FirebaseAuth instead of hardcoded value
+        final userId = di.sl<FirebaseServices>().auth.currentUser?.uid ?? authState.user.id;
+        shopBloc.add(LoadCartItemsEvent(userId));
         shopBloc.add(LoadProductsEvent());
         shopBloc.add(LoadFeaturedProductsEvent());
       }
@@ -137,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onNotificationTap: _navigateToNotifications,
           onTournamentsSeeAllTap: () => _switchToTab(1),
           onCommunitiesSeeAllTap: () => _switchToTab(2),
-          onShootersSeeAllTap: () => _switchToTab(4), // Profile for now
+          onShootersSeeAllTap: () => _switchToTab(4), // Go to profile
         ),
       );
     } else {
@@ -160,7 +165,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTournamentContent() {
-    return const TournamentScreen();
+    return BlocProvider(
+      create: (context) => di.sl<TournamentBloc>(),
+      child: const TournamentScreen(),
+    );
   }
 
   Widget _buildProfileContent(User user) {

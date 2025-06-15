@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/config/theme.dart';
 import '../../domain/entities/match.dart';
 
-class LiveTournamentCard extends StatelessWidget {
+class LiveMatchCard extends StatelessWidget {
   final Match match;
   final VoidCallback? onTap;
   final VoidCallback? onViewLive;
 
-  const LiveTournamentCard({
+  const LiveMatchCard({
     Key? key,
     required this.match,
     this.onTap,

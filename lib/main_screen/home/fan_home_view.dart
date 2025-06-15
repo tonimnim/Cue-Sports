@@ -2,9 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pool_billiard_app/main_screen/home/components/community_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/tournament_card.dart';
+import 'package:pool_billiard_app/main_screen/home/components/live_match_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/top_shooters_list.dart';
 import 'package:pool_billiard_app/main_screen/home/components/upgrade_promotion_card.dart';
 import 'package:pool_billiard_app/main_screen/home/components/quick_action_component.dart';
+import 'package:pool_billiard_app/main_screen/home/services/home_service.dart';
+import 'package:pool_billiard_app/features/tournaments/data/models/tournament_model.dart';
+import 'package:pool_billiard_app/features/tournaments/data/models/match_model.dart';
+import 'package:pool_billiard_app/features/auth/domain/entities/community.dart';
 
 class FanHomeView extends StatefulWidget {
   final String userName;
@@ -38,11 +43,43 @@ class _FanHomeViewState extends State<FanHomeView> {
   final PageController _heroPageController = PageController();
   Timer? _heroAutoScrollTimer;
   int _currentHeroPage = 0;
+  
+  // Home data management
+  HomePageData? _homeData;
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
     _startHeroAutoScroll();
+    _loadHomeData();
+  }
+
+  Future<void> _loadHomeData() async {
+    // Note: HomeService will need to be injected via dependency injection
+    // For now, we'll create a placeholder method
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // TODO: Inject HomeService through dependency injection
+      // final homeData = await homeService.getHomePageData(isPlayer: false);
+      // For now, set loading to false to show the UI structure
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      setState(() {
+        _isLoading = false;
+        // _homeData = homeData;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
   }
 
   @override
@@ -414,33 +451,52 @@ class _FanHomeViewState extends State<FanHomeView> {
   }
 
   Widget _buildTournamentsCarousel(BuildContext context) {
-    // Sample tournament data
-    final List<Map<String, dynamic>> tournaments = [
-      {
-        'title': 'Nairobi Premier League',
-        'round': '3 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
-        'isLive': true,
-      },
-      {
-        'title': 'Nairobi Premier League',
-        'round': '4 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
-        'isLive': true,
-      },
-      {
-        'title': 'Nairobi Premier League',
-        'round': '5 of 5',
-        'players': 32,
-        'prize': 'KSh 50,000',
-        'venue': 'City Hall',
-        'isLive': true,
-      },
-    ];
+    if (_isLoading) {
+      return Container(
+        height: 180,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Container(
+        height: 180,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error, color: Colors.red, size: 32),
+              const SizedBox(height: 8),
+              Text(
+                'Failed to load tournaments',
+                style: const TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: _loadHomeData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final tournaments = _homeData?.activeTournaments ?? [];
+    
+    if (tournaments.isEmpty) {
+      return Container(
+        height: 180,
+        child: const Center(
+          child: Text(
+            'No active tournaments at the moment',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
       height: 180,
@@ -453,18 +509,17 @@ class _FanHomeViewState extends State<FanHomeView> {
             padding: EdgeInsets.only(
                 right: index < tournaments.length - 1 ? 16.0 : 0),
             child: TournamentCard(
-              title: tournament['title'],
-              round: tournament['round'],
-              players: tournament['players'],
-              prize: tournament['prize'],
-              venue: tournament['venue'],
-              isLive: tournament['isLive'],
+              title: tournament.name,
+              round: 'Active Tournament',
+              players: tournament.registeredUserIds.length,
+              prize: 'KSh ${tournament.prizePool.toStringAsFixed(0)}',
+              venue: tournament.venue ?? tournament.location,
               onTap: () {
                 // Navigate to tournament details
                 Navigator.pushNamed(
                   context,
                   '/tournament-details',
-                  arguments: {'tournamentId': index.toString()},
+                  arguments: {'tournamentId': tournament.id},
                 );
               },
             ),
@@ -475,21 +530,28 @@ class _FanHomeViewState extends State<FanHomeView> {
   }
 
   Widget _buildCommunitiesCarousel(BuildContext context) {
-    // Sample community data
-    final List<Map<String, dynamic>> communities = [
-      {
-        'name': 'Nairobi East',
-        'playerCount': 156,
-      },
-      {
-        'name': 'Nairobi East',
-        'playerCount': 156,
-      },
-      {
-        'name': 'Nairobi East',
-        'playerCount': 156,
-      },
-    ];
+    if (_isLoading) {
+      return Container(
+        height: 80,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    final communities = _homeData?.topCommunities ?? [];
+    
+    if (communities.isEmpty) {
+      return Container(
+        height: 80,
+        child: const Center(
+          child: Text(
+            'No communities available',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
       height: 80,
@@ -502,14 +564,65 @@ class _FanHomeViewState extends State<FanHomeView> {
             padding: EdgeInsets.only(
                 right: index < communities.length - 1 ? 16.0 : 0),
             child: CommunityCard(
-              name: community['name'],
-              playerCount: community['playerCount'],
+              name: community.name,
+              playerCount: community.memberCount,
               onTap: () {
                 // Navigate to community details
                 Navigator.pushNamed(
                   context,
                   '/community-details',
-                  arguments: {'communityId': index.toString()},
+                  arguments: {'communityId': community.id},
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildLiveMatchesCarousel(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        height: 200,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    final liveMatches = _homeData?.liveMatches ?? [];
+    
+    if (liveMatches.isEmpty) {
+      return Container(
+        height: 200,
+        child: const Center(
+          child: Text(
+            'No live matches at the moment',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: liveMatches.length,
+        itemBuilder: (context, index) {
+          final match = liveMatches[index];
+          return Padding(
+            padding: EdgeInsets.only(
+                right: index < liveMatches.length - 1 ? 16.0 : 0),
+            child: LiveMatchCard(
+              match: match,
+              onTap: () {
+                // Navigate to match details or open YouTube stream
+                Navigator.pushNamed(
+                  context,
+                  '/match-details',
+                  arguments: {'matchId': match.id},
                 );
               },
             ),

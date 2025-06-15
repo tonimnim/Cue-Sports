@@ -483,8 +483,8 @@ class TournamentBloc extends Bloc<TournamentEvent, TournamentState> {
     RefreshTournamentsEvent event,
     Emitter<TournamentState> emit,
   ) async {
-    // Reload featured and active tournaments
-    add(const LoadFeaturedTournamentsEvent());
+    // Reload all tournament data to ensure registration state is updated
+    add(const LoadTournamentsEvent());
     add(const LoadActiveTournamentsEvent());
   }
 

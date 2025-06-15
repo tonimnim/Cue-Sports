@@ -70,7 +70,7 @@ class MemberListTile extends StatelessWidget {
             'Rank: ${member.rank}',
             style: theme.textTheme.bodySmall,
           ),
-          if (member.hasBadges)
+          if (member.hasBadges && member.badges != null)
             Wrap(
               spacing: 4,
               children: member.badges!.map((badge) {

@@ -14,7 +14,8 @@ class AppBottomNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 70,
+      // Reduce height to prevent overflow
+      height: 100,
       decoration: BoxDecoration(
         color: AppTheme.primaryColor,
         border: Border(
@@ -25,8 +26,11 @@ class AppBottomNavigation extends StatelessWidget {
         ),
       ),
       child: SafeArea(
+        // Set maintainBottomViewPadding to true to respect system UI
+        maintainBottomViewPadding: true,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          // Reduce horizontal padding to give more space
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             crossAxisAlignment: CrossAxisAlignment.center,

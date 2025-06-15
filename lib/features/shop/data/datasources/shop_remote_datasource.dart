@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:logger/logger.dart';
 import '../../../../firebase/firebase_services.dart';
 import '../../../../core/error/exceptions.dart';
 import '../models/product_model.dart';
@@ -31,6 +32,7 @@ abstract class ShopRemoteDataSource {
 
 class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   final FirebaseServices _firebaseServices;
+  final Logger _logger = Logger();
 
   ShopRemoteDataSourceImpl(this._firebaseServices);
 
@@ -129,20 +131,26 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   @override
   Future<List<CartItemModel>> getCartItems(String userId) async {
     try {
+      _logger.i('Getting cart items for user: $userId');
       final snapshot = await _firebaseServices.cartsCollection
           .doc(userId)
           .collection('items')
           .orderBy('updatedAt', descending: true)
           .get();
 
+      _logger.i('Found ${snapshot.docs.length} cart items in Firestore for user: $userId');
       final List<CartItemModel> cartItems = [];
 
       for (final doc in snapshot.docs) {
-        cartItems.add(CartItemModel.fromFirestore(doc));
+        final item = CartItemModel.fromFirestore(doc);
+        _logger.d('Cart item from Firestore: ID=${doc.id}, ProductID=${item.productId}, Name=${item.name}, Quantity=${item.quantity}');
+        cartItems.add(item);
       }
 
+      _logger.i('Successfully retrieved ${cartItems.length} cart items for user: $userId');
       return cartItems;
     } catch (e) {
+      _logger.e('Failed to get cart items for user: $userId, error: $e');
       throw ServerException('Failed to get cart items: $e');
     }
   }
@@ -150,9 +158,11 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   @override
   Future<void> addToCart(CartItemModel cartItem) async {
     try {
-      // Use consistent user ID approach - for MVP we'll use 'current_user'
-      // In production, this would use proper user authentication
-      final userId = 'current_user';
+      // Get current user ID from Firebase Auth
+      final userId = _firebaseServices.auth.currentUser?.uid ?? '';
+      if (userId.isEmpty) {
+        throw ServerException('User not authenticated');
+      }
 
       // Check if item already exists in cart
       final existingItems = await _firebaseServices.cartsCollection
@@ -163,12 +173,16 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
 
       if (existingItems.docs.isNotEmpty) {
         // Update existing item quantity
-        final existingDoc = existingItems.docs.first;
-        final existingData = existingDoc.data();
-        final newQuantity = (existingData['quantity'] ?? 0) + cartItem.quantity;
-
-        await existingDoc.reference.update({
-          'quantity': newQuantity,
+        final existingItem = existingItems.docs.first;
+        final existingData = existingItem.data();
+        final existingQuantity = existingData['quantity'] as int? ?? 0;
+        
+        await _firebaseServices.cartsCollection
+            .doc(userId)
+            .collection('items')
+            .doc(existingItem.id)
+            .update({
+          'quantity': existingQuantity + cartItem.quantity,
           'updatedAt': FieldValue.serverTimestamp(),
         });
       } else {
@@ -178,7 +192,12 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
             .collection('items')
             .add(cartItem.toFirestore());
       }
+
+      final userIdForLog = userId; // Store in local variable for logging
+      _logger.i('Successfully added item to cart for user: $userIdForLog, ProductID=${cartItem.productId}, Quantity=${cartItem.quantity}');
     } catch (e) {
+      final userIdForLog = _firebaseServices.auth.currentUser?.uid ?? 'unknown';
+      _logger.e('Failed to add item to cart for user: $userIdForLog, ProductID=${cartItem.productId}, Quantity=${cartItem.quantity}, error: $e');
       throw ServerException('Failed to add to cart: $e');
     }
   }
@@ -186,8 +205,8 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   @override
   Future<void> updateCartItem(CartItemModel cartItem) async {
     try {
-      // Use consistent user ID approach - for MVP we'll use 'current_user'
-      final userId = 'current_user';
+      // Get current user ID from Firebase Auth
+      final userId = _firebaseServices.auth.currentUser?.uid ?? '';
 
       await _firebaseServices.cartsCollection
           .doc(userId)
@@ -215,18 +234,24 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   @override
   Future<void> clearCart(String userId) async {
     try {
+      _logger.i('Clearing cart for user: $userId');
       final batch = _firebaseServices.firestore.batch();
       final cartItems = await _firebaseServices.cartsCollection
           .doc(userId)
           .collection('items')
           .get();
 
+      _logger.i('Found ${cartItems.docs.length} items to clear from cart for user: $userId');
+      
       for (final doc in cartItems.docs) {
+        _logger.d('Deleting cart item: ${doc.id} for user: $userId');
         batch.delete(doc.reference);
       }
 
       await batch.commit();
+      _logger.i('Successfully cleared ${cartItems.docs.length} items from cart for user: $userId');
     } catch (e) {
+      _logger.e('Failed to clear cart for user: $userId, error: $e');
       throw ServerException('Failed to clear cart: $e');
     }
   }

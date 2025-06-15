@@ -116,7 +116,7 @@ class _UnifiedPaymentScreenState extends State<UnifiedPaymentScreen>
   }
 
   Future<void> _initiatePayment() async {
-    if (!_formKey.currentState!.validate()) {
+    if (_formKey.currentState?.validate() != true) {
       return;
     }
 

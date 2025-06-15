@@ -410,29 +410,110 @@ class FirebaseTournamentRemoteDataSource implements TournamentRemoteDataSource {
     try {
       final registrationId = '${userId}_$tournamentId';
 
-      await _firestore
-          .collection('tournament_registrations')
-          .doc(registrationId)
-          .set({
-        'userId': userId,
-        'tournamentId': tournamentId,
-        'communityId': communityId,
-        'status': 'registered',
-        'registeredAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      // Use Firestore transaction for race condition safety
+      return await _firestore.runTransaction<bool>(
+        (transaction) async {
+          try {
+            // Check if user is already registered
+            final registrationRef = _firestore
+                .collection('tournament_registrations')
+                .doc(registrationId);
 
-      // Update tournament player count
-      await _firestore.collection('tournaments').doc(tournamentId).update({
-        'currentPlayers': FieldValue.increment(1),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            final existingRegistration = await transaction.get(registrationRef);
+            if (existingRegistration.exists) {
+              throw Exception('User already registered for this tournament');
+            }
 
-      // Clear cache to force refresh
-      _tournamentCache = null;
+            // Get current tournament data
+            final tournamentRef =
+                _firestore.collection('tournaments').doc(tournamentId);
 
-      return true;
+            final tournamentSnapshot = await transaction.get(tournamentRef);
+            if (!tournamentSnapshot.exists) {
+              throw Exception('Tournament not found');
+            }
+
+            final tournamentData = tournamentSnapshot.data()!;
+            final registeredUserIds =
+                List<String>.from(tournamentData['registeredUserIds'] ?? []);
+            final maxPlayers = tournamentData['maxPlayers'] as int? ?? 0;
+            final currentPlayers = registeredUserIds.length;
+
+            // Check if tournament is full (race condition safe)
+            if (maxPlayers > 0 && currentPlayers >= maxPlayers) {
+              throw Exception('Tournament is full');
+            }
+
+            // Check tournament status
+            final status = tournamentData['status'] as String? ?? '';
+            if (status != 'registration_open') {
+              throw Exception('Registration is not open for this tournament');
+            }
+
+            // Check if user is already in the list (double check)
+            if (registeredUserIds.contains(userId)) {
+              throw Exception('User already registered for this tournament');
+            }
+
+            // Create registration record
+            transaction.set(registrationRef, {
+              'userId': userId,
+              'tournamentId': tournamentId,
+              'communityId': communityId,
+              'status': 'registered',
+              'registeredAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+
+            // Update tournament with new user (atomic operation)
+            final updatedUserIds = [...registeredUserIds, userId];
+            transaction.update(tournamentRef, {
+              'registeredUserIds': updatedUserIds,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+
+            print('✅ Tournament registration completed successfully');
+            
+            // Clear cache to ensure fresh tournament data is loaded
+            _tournamentCache = null;
+            _lastCacheUpdate = null;
+            
+            return true;
+          } catch (e) {
+            print('❌ Transaction error: $e');
+            rethrow; // Re-throw to be caught by outer catch block
+          }
+        },
+        timeout: const Duration(seconds: 10), // Add timeout to prevent hanging
+      );
+    } on FirebaseException catch (e) {
+      final errorMsg = e.message ?? 'Firebase error occurred';
+      print('❌ Firebase error during registration: $errorMsg (code: ${e.code})');
+      
+      if (e.code == 'aborted') {
+        throw Exception(
+            'Registration failed due to concurrent access. Please try again.');
+      } else if (e.code == 'deadline-exceeded') {
+        throw Exception('Registration timeout. Please check your connection and try again.');
+      } else if (e.code == 'permission-denied') {
+        throw Exception('You do not have permission to register for this tournament.');
+      }
+      
+      throw ServerException('Failed to register: $errorMsg');
     } catch (e) {
+      print('❌ Error during tournament registration: $e');
+      
+      // Handle specific error types
+      if (e.toString().contains('User already registered')) {
+        throw Exception('You are already registered for this tournament');
+      } else if (e.toString().contains('Tournament not found')) {
+        throw Exception('Tournament no longer exists');
+      } else if (e.toString().contains('Tournament is full')) {
+        throw Exception('Tournament is full - no spots remaining');
+      } else if (e.toString().contains('Registration is not open')) {
+        throw Exception('Registration is closed for this tournament');
+      }
+      
       throw ServerException('Failed to register for tournament: $e');
     }
   }

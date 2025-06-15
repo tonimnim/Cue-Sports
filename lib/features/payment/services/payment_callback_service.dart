@@ -179,18 +179,30 @@ class MerchandisePaymentCallback implements PaymentCallbackService {
       final cartId = payment.typeId;
       List<Map<String, dynamic>> cartItems = [];
 
-      // Retrieve cart items from Firestore
-      final cartDoc = await _firestore.collection('carts').doc(cartId).get();
+      // Retrieve cart items from Firestore - FIXED: Items are in a subcollection, not in the cart document
+      try {
+        final cartItemsSnapshot = await _firestore
+            .collection('carts')
+            .doc(payment.userId) // Use userId instead of cartId
+            .collection('items')
+            .get();
 
-      if (cartDoc.exists && cartDoc.data() != null) {
-        final data = cartDoc.data()!;
-        if (data.containsKey('items') && data['items'] is List) {
-          cartItems = List<Map<String, dynamic>>.from(data['items']);
+        _logger.i('Retrieved ${cartItemsSnapshot.docs.length} cart items for order creation');
+        
+        for (final doc in cartItemsSnapshot.docs) {
+          final itemData = doc.data();
+          itemData['id'] = doc.id; // Ensure the item ID is included
+          cartItems.add(itemData);
+          _logger.d('Added cart item: ${doc.id}, Product: ${itemData['productId']}, Quantity: ${itemData['quantity']}');
         }
+      } catch (e) {
+        _logger.e('Error retrieving cart items for order creation: $e');
       }
 
       // Create order
       final orderId = 'order_${DateTime.now().millisecondsSinceEpoch}';
+      _logger.i('Creating order $orderId with ${cartItems.length} items');
+      
       await _firestore.collection('orders').doc(orderId).set({
         'userId': payment.userId,
         'orderNumber': orderId,
@@ -208,6 +220,28 @@ class MerchandisePaymentCallback implements PaymentCallbackService {
       // Clear cart if ShopBloc is available
       if (shopBloc != null) {
         shopBloc!.add(ClearCartEvent(payment.userId));
+      } else {
+        // If ShopBloc is not available, clear the cart directly from Firestore
+        try {
+          // Get all cart items
+          final cartItems = await _firestore
+              .collection('carts')
+              .doc(payment.userId)
+              .collection('items')
+              .get();
+
+          // Create a batch to delete all items
+          final batch = _firestore.batch();
+          for (final doc in cartItems.docs) {
+            batch.delete(doc.reference);
+          }
+
+          // Commit the batch
+          await batch.commit();
+          _logger.i('Cart cleared after successful payment for user: ${payment.userId}');
+        } catch (e) {
+          _logger.e('Error clearing cart after payment: $e');
+        }
       }
 
       // Log payment record
@@ -251,8 +285,16 @@ class MerchandisePaymentCallback implements PaymentCallbackService {
         'createdAt': payment.createdAt,
         'failedAt': FieldValue.serverTimestamp(),
       });
+
+      // No longer creating orders for TinyPesa API errors
+      // We only want orders to be created when payment is successful
+      _logger.i('Payment failed. No order will be created for failed payment: ${payment.id}');
+      
+      if (payment.errorMessage?.contains('TinyPesa API') ?? false) {
+        _logger.w('TinyPesa API error detected: ${payment.errorMessage}. No order will be created.');
+      }
     } catch (e) {
-      _logger.e('Error logging failed merchandise payment: $e');
+      _logger.e('Error handling failed merchandise payment: $e');
     }
   }
 

@@ -6,31 +6,26 @@ import '../bloc/shop_bloc.dart';
 import '../bloc/shop_event.dart';
 import '../bloc/shop_state.dart';
 import '../../domain/entities/shop_order.dart';
+import '../../../../firebase/firebase_services.dart';
 
 class ShopOrdersScreen extends StatelessWidget {
   const ShopOrdersScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Get the current user ID from Firebase
+    final firebaseServices = di.sl<FirebaseServices>();
+    final String userId = firebaseServices.currentUser?.uid ?? '';
+    
     return BlocProvider(
       create: (context) =>
-          di.sl<ShopBloc>()..add(LoadUserOrdersEvent('current_user')),
+          di.sl<ShopBloc>()..add(LoadUserOrdersEvent(userId)),
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
           backgroundColor: AppTheme.backgroundColor,
           elevation: 0,
           title: Text('My Orders', style: AppTheme.h2Style),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              onPressed: () {
-                context
-                    .read<ShopBloc>()
-                    .add(LoadUserOrdersEvent('current_user'));
-              },
-            ),
-          ],
         ),
         body: BlocBuilder<ShopBloc, ShopState>(
           builder: (context, state) {
@@ -54,7 +49,7 @@ class ShopOrdersScreen extends StatelessWidget {
                       onPressed: () {
                         context
                             .read<ShopBloc>()
-                            .add(LoadUserOrdersEvent('current_user'));
+                            .add(LoadUserOrdersEvent(userId));
                       },
                       child: const Text('Retry'),
                     ),
@@ -143,6 +138,66 @@ class ShopOrdersScreen extends StatelessWidget {
                             color: Colors.white70,
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        // Display order items
+                        const Divider(color: Colors.white24),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Items:',
+                          style: AppTheme.bodySmallStyle.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // List of items
+                        ...order.items.map((item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Product image
+                                  if (item.imageUrl != null && item.imageUrl?.isNotEmpty == true && !item.imageUrl!.contains('placeholder'))
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        image: DecorationImage(
+                                          image: NetworkImage(item.imageUrl!),
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.cardColor,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.sports_basketball,
+                                        color: AppTheme.accentColor,
+                                        size: 24,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Text(
+                                      '${item.quantity}x ${item.name}',
+                                      style: AppTheme.bodySmallStyle,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text(
+                                    'KSh ${(item.price * item.quantity).toStringAsFixed(0)}',
+                                    style: AppTheme.bodySmallStyle,
+                                  ),
+                                ],
+                              ),
+                            )),
                       ],
                     ),
                   );

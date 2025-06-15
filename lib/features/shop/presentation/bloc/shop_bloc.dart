@@ -1,6 +1,8 @@
 import 'package:bloc/bloc.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../../../../core/services/logger_service.dart';
+import '../../../../core/di/injection_container.dart' as di;
 import '../../domain/usecases/get_products_usecase.dart';
 import '../../domain/usecases/cart_usecases.dart';
 import '../../domain/usecases/order_usecases.dart';
@@ -27,6 +29,8 @@ class ShopBloc extends Bloc<ShopEvent, ShopState> {
   final GetUserOrdersUseCase getUserOrdersUseCase;
   final CreateOrderUseCase createOrderUseCase;
   final UpdateOrderUseCase updateOrderUseCase;
+  
+  final LoggerService _logger = di.sl<LoggerService>();
 
   ShopBloc({
     required this.getProductsUseCase,
@@ -229,21 +233,32 @@ class ShopBloc extends Bloc<ShopEvent, ShopState> {
   /// Production-grade cart loading with error handling
   Future<void> _onLoadCartItems(
       LoadCartItemsEvent event, Emitter<ShopState> emit) async {
+    _logger.i('Loading cart items for user: ${event.userId}');
     emit(state.copyWith(isCartLoading: true, clearError: true));
 
     final result =
         await getCartItemsUseCase(GetCartItemsParams(userId: event.userId));
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        errorMessage: _mapFailureToMessage(failure),
-        isCartLoading: false,
-      )),
-      (cartItems) => emit(state.copyWith(
-        cartItems: cartItems,
-        isCartLoading: false,
-        clearError: true,
-      )),
+      (failure) {
+        _logger.e('Failed to load cart items: ${_mapFailureToMessage(failure)}');
+        emit(state.copyWith(
+          errorMessage: _mapFailureToMessage(failure),
+          isCartLoading: false,
+        ));
+      },
+      (cartItems) {
+        _logger.i('Successfully loaded ${cartItems.length} cart items for user: ${event.userId}');
+        for (var item in cartItems) {
+          _logger.d('Cart item: ${item.id}, Product: ${item.name}, Quantity: ${item.quantity}');
+        }
+        emit(state.copyWith(
+          cartItems: cartItems,
+          isCartLoading: false,
+          clearError: true,
+        ));
+        _logger.d('Updated cart state with ${cartItems.length} items');
+      },
     );
   }
 
@@ -253,30 +268,41 @@ class ShopBloc extends Bloc<ShopEvent, ShopState> {
     emit(state.copyWith(
         isCartLoading: true, clearError: true, clearSuccess: true));
 
-    final result =
-        await addToCartUseCase(AddToCartParams(cartItem: event.cartItem));
+    _logger.i('Adding item to cart: ${event.cartItem.productId} for user: ${event.cartItem.userId}');
+
+    final result = await addToCartUseCase(AddToCartParams(cartItem: event.cartItem));
 
     await result.fold(
-      (failure) async => emit(state.copyWith(
-        errorMessage: _mapFailureToMessage(failure),
-        isCartLoading: false,
-      )),
+      (failure) async {
+        _logger.e('Failed to add item to cart: ${_mapFailureToMessage(failure)}');
+        emit(state.copyWith(
+          errorMessage: _mapFailureToMessage(failure),
+          isCartLoading: false,
+        ));
+      },
       (_) async {
-        // Reload cart items and emit single state with success message
+        // Reload cart and emit single state
+        _logger.i('Item added to cart successfully, reloading cart items');
         final cartResult = await getCartItemsUseCase(
-            GetCartItemsParams(userId: 'current_user'));
+            GetCartItemsParams(userId: event.cartItem.userId));
 
         cartResult.fold(
-          (failure) => emit(state.copyWith(
-            errorMessage: _mapFailureToMessage(failure),
-            isCartLoading: false,
-          )),
-          (cartItems) => emit(state.copyWith(
-            cartItems: cartItems,
-            successMessage: 'Item added to cart',
-            isCartLoading: false,
-            clearError: true,
-          )),
+          (failure) {
+            _logger.e('Failed to reload cart items: ${_mapFailureToMessage(failure)}');
+            emit(state.copyWith(
+              errorMessage: _mapFailureToMessage(failure),
+              isCartLoading: false,
+            ));
+          },
+          (cartItems) {
+            _logger.i('Cart reloaded with ${cartItems.length} items, total count: ${cartItems.fold(0, (sum, item) => sum + item.quantity)}');
+            emit(state.copyWith(
+              cartItems: cartItems,
+              successMessage: 'Item added to cart',
+              isCartLoading: false,
+              clearError: true,
+            ));
+          },
         );
       },
     );
@@ -298,7 +324,7 @@ class ShopBloc extends Bloc<ShopEvent, ShopState> {
       (_) async {
         // Reload cart and emit single state
         final cartResult = await getCartItemsUseCase(
-            GetCartItemsParams(userId: 'current_user'));
+            GetCartItemsParams(userId: event.cartItem.userId));
 
         cartResult.fold(
           (failure) => emit(state.copyWith(
@@ -356,16 +382,22 @@ class ShopBloc extends Bloc<ShopEvent, ShopState> {
     emit(state.copyWith(
         isCartLoading: true, clearError: true, clearSuccess: true));
 
+    _logger.i('Clearing cart for user: ${event.userId}');
+
     final result =
         await clearCartUseCase(ClearCartParams(userId: event.userId));
 
     await result.fold(
-      (failure) async => emit(state.copyWith(
-        errorMessage: _mapFailureToMessage(failure),
-        isCartLoading: false,
-      )),
+      (failure) async {
+        _logger.e('Failed to clear cart: ${_mapFailureToMessage(failure)}');
+        emit(state.copyWith(
+          errorMessage: _mapFailureToMessage(failure),
+          isCartLoading: false,
+        ));
+      },
       (_) async {
         // Clear cart and emit single state
+        _logger.i('Cart cleared successfully');
         emit(state.copyWith(
           cartItems: [],
           successMessage: 'Cart cleared',
@@ -401,19 +433,52 @@ class ShopBloc extends Bloc<ShopEvent, ShopState> {
     emit(state.copyWith(
         status: ShopStatus.loading, clearError: true, clearSuccess: true));
 
+    _logger.i('Creating order for user: ${event.order.userId} with ${event.order.items.length} items');
+    _logger.i('Order details: Total: ${event.order.total}, Payment method: ${event.order.paymentMethod}');
+
     final result =
         await createOrderUseCase(CreateOrderParams(order: event.order));
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        status: ShopStatus.error,
-        errorMessage: _mapFailureToMessage(failure),
-      )),
-      (orderId) => emit(state.copyWith(
-        status: ShopStatus.loaded,
-        successMessage: 'Order created successfully: $orderId',
-        clearError: true,
-      )),
+      (failure) {
+        _logger.e('Failed to create order: ${_mapFailureToMessage(failure)}');
+        emit(state.copyWith(
+          status: ShopStatus.error,
+          errorMessage: _mapFailureToMessage(failure),
+        ));
+      },
+      (orderId) async {
+        _logger.i('Order created successfully with ID: $orderId, now clearing cart');
+        // Clear the cart after successful order creation
+        _logger.i('Attempting to clear cart for user: ${event.order.userId} after order creation');
+        _logger.d('Current cart state before clearing: ${state.cartItems.length} items');
+        
+        final clearResult = await clearCartUseCase(ClearCartParams(userId: event.order.userId));
+        
+        await clearResult.fold(
+          (failure) async {
+            _logger.e('Failed to clear cart after order creation: ${_mapFailureToMessage(failure)}');
+            _logger.e('Cart clearing failure details: User ID: ${event.order.userId}, Order ID: $orderId');
+            emit(state.copyWith(
+              status: ShopStatus.loaded,
+              successMessage: 'Order created successfully: $orderId, but failed to clear cart: ${_mapFailureToMessage(failure)}',
+              clearError: true,
+            ));
+            _logger.d('State after cart clearing failure: ${state.cartItems.length} items still in cart');
+          },
+          (_) async {
+            _logger.i('Cart cleared successfully after order creation for user: ${event.order.userId}');
+            _logger.i('Order ID: $orderId, Items cleared: ${state.cartItems.length}');
+            emit(state.copyWith(
+              status: ShopStatus.loaded,
+              cartItems: [], // Clear cart items in state
+              successMessage: 'Order created successfully: $orderId',
+              clearError: true,
+            ));
+            _logger.d('State after cart clearing success: Cart items set to empty list');
+          },
+        );
+      },
     );
   }
 
