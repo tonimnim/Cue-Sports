@@ -169,11 +169,11 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     Emitter<PaymentState> emit,
   ) async {
     try {
-      final response =
-          await _tinyPesaService.checkPaymentStatus(event.transactionId);
-
+      final response = await _tinyPesaService.checkPaymentStatus(event.transactionId);
+      
       if (state.currentPayment == null) {
         _logger.w('No current payment found for status check');
+        _cancelPolling(); // Cancel polling if no payment is found
         return;
       }
 
@@ -181,6 +181,35 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
 
       switch (response.status) {
         case PaymentStatusType.success:
+          // Stop polling immediately before any other operations
+          _cancelPolling();
+          
+          // Check if this payment has already been processed by checking for existing orders
+          // instead of checking for existing payments
+          final orderQuery = await _firestore
+              .collection('orders')
+              .where('transactionId', isEqualTo: event.transactionId)
+              .get();
+              
+          if (orderQuery.docs.isNotEmpty) {
+            _logger.w('Order for payment ${event.transactionId} already exists. Skipping callback.');
+            
+            // Still update the UI state to show success
+            updatedPayment = state.currentPayment!.copyWith(
+              status: PaymentStatus.success,
+              mpesaReceiptNumber: response.mpesaReceiptNumber,
+              updatedAt: DateTime.now(),
+            );
+            
+            emit(state.copyWith(
+              currentPayment: updatedPayment,
+              status: PaymentStatus.success,
+              isPolling: false,
+            ));
+            
+            return;
+          }
+          
           updatedPayment = state.currentPayment!.copyWith(
             status: PaymentStatus.success,
             mpesaReceiptNumber: response.mpesaReceiptNumber,
@@ -193,7 +222,6 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
             isPolling: false,
           ));
 
-          _cancelPolling();
           await _handlePaymentCallback(updatedPayment, true);
           break;
 
@@ -404,21 +432,40 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   /// Handle payment callbacks based on payment type
   Future<void> _handlePaymentCallback(Payment payment, bool success) async {
     try {
-      // Save payment to Firestore
-      await _firestore.collection('payments').doc(payment.id).set({
-        'userId': payment.userId,
-        'type': payment.type.name,
-        'typeId': payment.typeId,
-        'amount': payment.amount,
-        'phoneNumber': payment.phoneNumber,
-        'status': payment.status.name,
-        'mpesaReceiptNumber': payment.mpesaReceiptNumber,
-        'checkoutRequestId': payment.checkoutRequestId,
-        'transactionId': payment.transactionId,
-        'createdAt': payment.createdAt,
-        'updatedAt': payment.updatedAt ?? DateTime.now(),
-        'metadata': payment.metadata,
-        'errorMessage': payment.errorMessage,
+      // Use a transaction to ensure atomic payment record creation
+      await _firestore.runTransaction((transaction) async {
+        // Check if this payment has already been processed
+        final paymentDoc = await _firestore.collection('payments').doc(payment.id).get();
+        
+        // If the payment document exists and has a final status, don't process it again
+        if (paymentDoc.exists) {
+          final data = paymentDoc.data();
+          if (data != null) {
+            final status = data['status'];
+            if (status == 'success' || status == 'failed') {
+              _logger.w('Payment ${payment.id} already has final status: $status. Skipping callback.');
+              return; // Exit the transaction without making changes
+            }
+          }
+        }
+        
+        // Save payment to Firestore
+        transaction.set(_firestore.collection('payments').doc(payment.id), {
+          'userId': payment.userId,
+          'type': payment.type.name,
+          'typeId': payment.typeId,
+          'amount': payment.amount,
+          'phoneNumber': payment.phoneNumber,
+          'status': payment.status.name,
+          'mpesaReceiptNumber': payment.mpesaReceiptNumber,
+          'checkoutRequestId': payment.checkoutRequestId,
+          'transactionId': payment.transactionId,
+          'createdAt': payment.createdAt,
+          'updatedAt': payment.updatedAt ?? DateTime.now(),
+          'metadata': payment.metadata,
+          'errorMessage': payment.errorMessage,
+          'processedAt': FieldValue.serverTimestamp(), // Add timestamp for when this was processed
+        });
       });
 
       // Get appropriate callback service

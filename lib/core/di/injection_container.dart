@@ -14,6 +14,7 @@ import '../../core/services/token_service.dart';
 import '../../core/services/email_service.dart';
 import '../../core/services/ranking_service.dart';
 import '../../core/services/local_storage_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../firebase/firebase_services.dart';
 
 // Auth feature imports - using the repository that implementation actually implements
@@ -86,6 +87,17 @@ import '../../core/services/sms_service.dart';
 import '../../main_screen/home/data/home_data_source.dart';
 import '../../main_screen/home/services/home_service.dart';
 
+// Notification feature imports
+import '../../features/notifications/data/notification_remote_data_source.dart';
+import '../../features/notifications/data/notification_repository_impl.dart';
+import '../../features/notifications/domain/repositories/notification_repository.dart';
+import '../../features/notifications/domain/usecases/get_notifications_use_case.dart';
+import '../../features/notifications/domain/usecases/get_unread_count_use_case.dart';
+import '../../features/notifications/domain/usecases/mark_notification_read_use_case.dart';
+import '../../features/notifications/domain/usecases/mark_all_read_use_case.dart';
+import '../../features/notifications/domain/usecases/delete_notification_use_case.dart';
+import '../../features/notifications/presentation/bloc/notification_bloc.dart';
+
 // Service locator
 final sl = GetIt.instance;
 
@@ -122,6 +134,11 @@ Future<void> init() async {
 
   // Logger
   sl.registerLazySingleton<LoggerService>(() => LoggerService());
+
+  // Notification Service
+  sl.registerLazySingleton<NotificationService>(
+    () => NotificationService(sl<LoggerService>()),
+  );
 
   // Secure Storage Service for registration drafts, tokens, and user data
   sl.registerLazySingleton<SecureStorageService>(
@@ -206,24 +223,7 @@ Future<void> init() async {
     ),
   );
 
-  // Use cases - using correct class names
-  sl.registerLazySingleton(() => RegisterFanUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => RegisterPlayerUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => LoginUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => LogoutUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => GetCurrentUserUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(
-      () => SendPasswordResetUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(
-      () => VerifyPasswordResetUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => ResetPasswordUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(
-      () => SendEmailVerificationUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => VerifyEmailUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => UpdateProfileUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton(() => UpgradeToPlayerUseCase(sl<AuthRepository>()));
-
-  // AuthService - Direct Firebase Authentication service
+  // Auth Service
   sl.registerLazySingleton<AuthService>(
     () => AuthService(
       auth: sl<FirebaseAuth>(),
@@ -231,7 +231,17 @@ Future<void> init() async {
     ),
   );
 
-  // BLoCs - Auth with new Firebase email verification dependencies
+  // Use cases
+  // sl.registerLazySingleton(() => RegisterUseCase(sl<AuthRepository>())); // Removed - not implemented
+  sl.registerLazySingleton(() => LoginUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(() => LogoutUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(() => GetCurrentUserUseCase(sl<AuthRepository>()));
+  // sl.registerLazySingleton(() => PasswordResetUseCase(sl<AuthRepository>())); // Removed - not implemented
+  // sl.registerLazySingleton(() => EmailVerificationUseCase(sl<AuthRepository>())); // Removed - not implemented
+  sl.registerLazySingleton(() => UpdateProfileUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(() => UpgradeToPlayerUseCase(sl<AuthRepository>()));
+
+  // BLoCs - Auth
   sl.registerFactory(() => AuthBloc(
         logger: sl<LoggerService>(),
         authRepository: sl<AuthRepository>(),
@@ -265,7 +275,7 @@ Future<void> init() async {
     ),
   );
 
-  // Use cases - only keeping the ones that might be used elsewhere
+  // Use cases
   sl.registerLazySingleton(
       () => GetCommunitiesUseCase(sl<CommunityRepository>()));
   sl.registerLazySingleton(
@@ -277,25 +287,33 @@ Future<void> init() async {
   sl.registerLazySingleton(
       () => CheckCommunityMembershipUseCase(sl<CommunityRepository>()));
   sl.registerLazySingleton(
+      () => GetCommunitiesByLocationUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => GetTopRankedCommunitiesUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
       () => SearchCommunitiesUseCase(sl<CommunityRepository>()));
+  sl.registerLazySingleton(
+      () => LeaveCommunityUseCase(sl<CommunityRepository>()));
 
   // BLoCs - Community
-  sl.registerFactory(
-    () => CommunityBloc(
-      repository: sl<CommunityRepository>(),
-    ),
-  );
+  sl.registerFactory(() => CommunityBloc(
+        repository: sl<CommunityRepository>(),
+      ));
 
   // ======== SHOP FEATURE ========
 
   // Data sources
   sl.registerLazySingleton<ShopRemoteDataSource>(
-    () => ShopRemoteDataSourceImpl(sl<FirebaseServices>()),
+    () => ShopRemoteDataSourceImpl(
+      sl<FirebaseServices>(),
+    ),
   );
 
   // Repository
   sl.registerLazySingleton<ShopRepository>(
-    () => ShopRepositoryImpl(remoteDataSource: sl<ShopRemoteDataSource>()),
+    () => ShopRepositoryImpl(
+      remoteDataSource: sl<ShopRemoteDataSource>(),
+    ),
   );
 
   // Use cases
@@ -364,6 +382,43 @@ Future<void> init() async {
   // BLoCs - Tournament
   sl.registerFactory(() => TournamentBloc(
         repository: sl<TournamentRepository>(),
+        logger: sl<LoggerService>(),
+      ));
+
+  // ======== NOTIFICATION FEATURE ========
+
+  // Data sources
+  sl.registerLazySingleton<NotificationRemoteDataSource>(
+    () => NotificationRemoteDataSourceImpl(
+      firestore: sl<FirebaseFirestore>(),
+      firebaseServices: sl<FirebaseServices>(),
+      logger: sl<LoggerService>(),
+    ),
+  );
+
+  // Repository
+  sl.registerLazySingleton<NotificationRepository>(
+    () => NotificationRepositoryImpl(
+      remoteDataSource: sl<NotificationRemoteDataSource>(),
+      networkInfo: sl<NetworkInfo>(),
+      logger: sl<LoggerService>(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => GetNotificationsUseCase(sl<NotificationRepository>()));
+  sl.registerLazySingleton(() => GetUnreadCountUseCase(sl<NotificationRepository>()));
+  sl.registerLazySingleton(() => MarkNotificationReadUseCase(sl<NotificationRepository>()));
+  sl.registerLazySingleton(() => MarkAllReadUseCase(sl<NotificationRepository>()));
+  sl.registerLazySingleton(() => DeleteNotificationUseCase(sl<NotificationRepository>()));
+
+  // BLoCs - Notification
+  sl.registerFactory(() => NotificationBloc(
+        getNotificationsUseCase: sl<GetNotificationsUseCase>(),
+        getUnreadCountUseCase: sl<GetUnreadCountUseCase>(),
+        markNotificationReadUseCase: sl<MarkNotificationReadUseCase>(),
+        markAllReadUseCase: sl<MarkAllReadUseCase>(),
+        deleteNotificationUseCase: sl<DeleteNotificationUseCase>(),
         logger: sl<LoggerService>(),
       ));
 

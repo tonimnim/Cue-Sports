@@ -22,6 +22,8 @@ class ShopOrder extends Equatable {
   final String shippingAddress;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? transactionId; // M-Pesa transaction ID
+  final String? mpesaReceiptNumber; // M-Pesa receipt number
 
   const ShopOrder({
     required this.id,
@@ -34,6 +36,8 @@ class ShopOrder extends Equatable {
     required this.shippingAddress,
     required this.createdAt,
     required this.updatedAt,
+    this.transactionId,
+    this.mpesaReceiptNumber,
   });
 
   /// Create a copy of this order with some fields replaced
@@ -48,6 +52,8 @@ class ShopOrder extends Equatable {
     String? shippingAddress,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? transactionId,
+    String? mpesaReceiptNumber,
   }) {
     return ShopOrder(
       id: id ?? this.id,
@@ -60,6 +66,8 @@ class ShopOrder extends Equatable {
       shippingAddress: shippingAddress ?? this.shippingAddress,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      transactionId: transactionId ?? this.transactionId,
+      mpesaReceiptNumber: mpesaReceiptNumber ?? this.mpesaReceiptNumber,
     );
   }
 
@@ -76,6 +84,8 @@ class ShopOrder extends Equatable {
       'shippingAddress': shippingAddress,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'transactionId': transactionId,
+      'mpesaReceiptNumber': mpesaReceiptNumber,
     };
   }
 
@@ -97,6 +107,8 @@ class ShopOrder extends Equatable {
       shippingAddress: map['shippingAddress'] as String,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
+      transactionId: map['transactionId'] as String?,
+      mpesaReceiptNumber: map['mpesaReceiptNumber'] as String?,
     );
   }
 
@@ -121,5 +133,7 @@ class ShopOrder extends Equatable {
         shippingAddress,
         createdAt,
         updatedAt,
+        transactionId,
+        mpesaReceiptNumber,
       ];
-} 
+}

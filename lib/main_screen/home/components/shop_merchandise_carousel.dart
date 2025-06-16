@@ -354,21 +354,23 @@ class _ShopMerchandiseCarouselState extends State<ShopMerchandiseCarousel> {
                   child: ClipRRect(
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: product.imageUrl.startsWith('http')
-                        ? Image.network(
-                            product.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return _buildImagePlaceholder();
-                            },
-                          )
-                        : Image.asset(
-                            product.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return _buildImagePlaceholder();
-                            },
-                          ),
+                    child: product.imageUrl.contains('via.placeholder.com') || product.imageUrl.contains('placeholder')
+                        ? _buildImagePlaceholder()
+                        : product.imageUrl.startsWith('http')
+                            ? Image.network(
+                                product.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return _buildImagePlaceholder();
+                                },
+                              )
+                            : Image.asset(
+                                product.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return _buildImagePlaceholder();
+                                },
+                              ),
                   ),
                 ),
                 // Show badge for featured or popular products

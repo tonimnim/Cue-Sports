@@ -16,6 +16,7 @@ import 'main_screen/splash_screen.dart';
 import 'main_screen/home/home.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/pages/sms_verification_screen.dart';
+import 'features/notifications/presentation/bloc/notification_bloc.dart';
 
 /// Main application widget with integrated authentication flow
 class App extends StatelessWidget {
@@ -41,6 +42,10 @@ class App extends StatelessWidget {
         ),
         BlocProvider<ShopBloc>(
           create: (context) => di.sl<ShopBloc>(),
+        ),
+        // Add NotificationBloc provider
+        BlocProvider<NotificationBloc>(
+          create: (context) => di.sl<NotificationBloc>(),
         ),
       ],
       child: MaterialApp(

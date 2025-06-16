@@ -9,6 +9,7 @@ enum NotificationPriority {
 
 /// Notification categories
 enum NotificationCategory {
+  all,
   community,
   tournament,
   payment,
@@ -28,6 +29,10 @@ enum NotificationAction {
   openPaymentHistory,
   upgradeToPlayer,
   viewCommunityMembers,
+  viewTournament,
+  viewMatch,
+  viewCommunity,
+  none,
   custom,
 }
 

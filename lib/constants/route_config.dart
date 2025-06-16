@@ -16,6 +16,9 @@ import 'package:pool_billiard_app/core/di/injection_container.dart' as di;
 import 'package:pool_billiard_app/features/shop/presentation/bloc/shop_bloc.dart';
 import 'package:pool_billiard_app/features/shop/presentation/bloc/shop_event.dart';
 import 'package:pool_billiard_app/firebase/firebase_services.dart';
+import 'package:pool_billiard_app/features/notifications/presentation/bloc/notification_bloc.dart';
+import 'package:pool_billiard_app/features/notifications/presentation/bloc/notification_event.dart';
+import 'package:pool_billiard_app/features/notifications/presentation/screens/notification_screen.dart';
 
 // Import individual pages
 import '../main_screen/splash_screen.dart';
@@ -280,12 +283,10 @@ class RouteConfig {
           builder: (_) => const ShopOrdersScreen(),
         );
       case notifications:
-        // Placeholder until notifications screen is implemented
         return MaterialPageRoute(
-          builder: (_) => Scaffold(
-            appBar: AppBar(title: const Text('Notifications')),
-            body:
-                const Center(child: Text('Notifications screen - Coming soon')),
+          builder: (_) => BlocProvider(
+            create: (context) => di.sl<NotificationBloc>()..add(LoadNotificationsEvent(di.sl<FirebaseServices>().currentUser?.uid ?? ''))..add(LoadUnreadCountEvent(di.sl<FirebaseServices>().currentUser?.uid ?? '')),
+            child: const NotificationScreen(),
           ),
         );
       default:

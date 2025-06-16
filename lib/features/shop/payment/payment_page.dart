@@ -12,6 +12,7 @@ import '../../domain/entities/shop_order.dart';
 import '../../domain/entities/cart_item.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/services/logger_service.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../injection_container.dart' as di;
 
 enum PaymentStatus { initial, pending, success, failed }
@@ -40,6 +41,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final TextEditingController _phoneController = TextEditingController();
   PaymentStatus _paymentStatus = PaymentStatus.initial;
   bool _isLoading = false;
+  bool _isCreatingOrder = false; // Flag to track if an order is being created
   Timer? _statusCheckTimer;
   String? _checkoutRequestID;
   String _errorMessage = '';
@@ -47,6 +49,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _txnUnique; // Store the transaction unique identifier
   bool _orderCreated = false; // Flag to track if an order has been created
   final LoggerService _logger = di.sl<LoggerService>();
+  final NotificationService _notificationService = di.sl<NotificationService>();
 
   @override
   void initState() {
@@ -553,6 +556,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // Create an order with the provided receipt number (test or actual)
   Future<bool> _createOrder(String receiptNumber) async {
     _logger.i('Creating order with receipt number: $receiptNumber for user: ${widget.userId}');
+    setState(() {
+      _isCreatingOrder = true;
+    });
+    
     try {
       print('Creating order with receipt number: $receiptNumber');
 
@@ -607,10 +614,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _logger.i('Retrieved ${cartItemsData.length} cart items for order');
       } catch (e) {
         _logger.e('Error retrieving cart items: $e', e);
+        // Show error toast but continue with empty items
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not retrieve cart items. Creating order with available information.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
 
-      // Generate a unique order ID if not present
-      String orderId = 'order_${DateTime.now().millisecondsSinceEpoch}';
+      // Generate a unique order ID with transaction ID to prevent duplicates
+      String orderId = 'order_${_txnUnique}_${DateTime.now().millisecondsSinceEpoch}';
       
       // Calculate total from cart items
       double total = 0;
@@ -618,7 +633,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         total += item.price * item.quantity;
       }
 
-      // Create ShopOrder entity
+      // Create ShopOrder entity with transaction ID to prevent duplicates
       final shopOrder = ShopOrder(
         id: orderId,
         userId: userId,
@@ -630,12 +645,43 @@ class _PaymentScreenState extends State<PaymentScreen> {
         shippingAddress: phoneNumber,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        transactionId: _txnUnique, // Add transaction ID to prevent duplicates
+        mpesaReceiptNumber: receiptNumber, // Add receipt number for reference
       );
+
+      // Set receipt number in state for display
+      setState(() {
+        _mpesaReceiptNumber = receiptNumber;
+      });
 
       // Dispatch CreateOrderEvent to ShopBloc
       _logger.i('Dispatching CreateOrderEvent to ShopBloc with order ID: ${shopOrder.id}');
       _logger.i('Order contains ${shopOrder.items.length} items with total: ${shopOrder.total}');
       _logger.d('User ID for cart clearing: ${shopOrder.userId}');
+      
+      // Wait for the order to be created in Firestore before proceeding
+      // This ensures the order is created before we navigate away
+      final completer = Completer<bool>();
+      final subscription = BlocProvider.of<ShopBloc>(context).stream.listen((state) {
+        if (!completer.isCompleted) {
+          if (state.hasError && !state.isOrderCreating) {
+            _logger.e('Order creation failed: ${state.errorMessage}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to create order: ${state.errorMessage}'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            completer.complete(false);
+          } else if (!state.isOrderCreating && state.successMessage?.contains('Order created successfully') == true) {
+            _logger.i('Order created successfully via ShopBloc');
+            completer.complete(true);
+          }
+        }
+      });
+      
+      // Dispatch the event after setting up the listener
       context.read<ShopBloc>().add(CreateOrderEvent(shopOrder));
 
       // Create order payload for API (keep this for backend integration)
@@ -655,52 +701,59 @@ class _PaymentScreenState extends State<PaymentScreen> {
       // Log the order being created
       _logger.i('Creating order with payload: ${jsonEncode(orderPayload)}');
 
-      // Now also send order creation request to backend API
-      final response = await http.post(
+      // Now also send order creation request to backend API in parallel
+      http.post(
         Uri.parse('https://seroxideentertainment.co.ke/pool/create_order.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(orderPayload),
+      ).then((response) {
+        // Log the response
+        _logger.i('Order creation API response: Status=${response.statusCode}, Body=${response.body}');
+      }).catchError((e) {
+        _logger.e('Error sending order to backend API: $e');
+      });
+
+      // Wait for the order creation to complete or timeout after 10 seconds
+      final result = await completer.future.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          _logger.w('Order creation timed out, assuming it will complete in the background');
+          return true; // Assume success and continue
+        },
       );
-
-      // Log the response
-      _logger.i('Order creation response: Status=${response.statusCode}, Body=${response.body}');
-
-      if (response.statusCode == 200) {
+      
+      // Clean up the subscription
+      subscription.cancel();
+      
+      // Send order completion notification
+      if (result) {
         try {
-          final responseData = jsonDecode(response.body);
-
-          if (responseData['status'] == 'success') {
-            _logger.i('Order created successfully with ID: ${responseData['order_id']}');
-
-            // Set receipt number in state for display
-            setState(() {
-              _mpesaReceiptNumber = receiptNumber;
-            });
-
-            return true; // Order created successfully
-          } else {
-            _logger.w('Order creation API call failed: ${responseData['message']}');
-            // Return true anyway since we already dispatched to ShopBloc
-            return true;
-          }
+          await _notificationService.sendOrderCompletedNotification(
+            userId: userId,
+            orderId: shopOrder.id,
+            orderAmount: shopOrder.total,
+            paymentReceiptNumber: receiptNumber,
+          );
+          _logger.i('Order completion notification sent successfully');
         } catch (e) {
-          _logger.e('Error parsing order creation response: $e', e);
-          // Return true anyway since we already dispatched to ShopBloc
-          return true;
+          _logger.e('Error sending order completion notification: $e', e);
+          // Continue with the process even if notification fails
         }
-      } else {
-        _logger.e('Order creation failed with status code: ${response.statusCode}');
-        // Return true anyway since we already dispatched to ShopBloc
-        return true;
       }
+      
+      // Update UI state
+      setState(() {
+        _isCreatingOrder = false;
+      });
+      
+      return result;
     } catch (e) {
       _logger.e('Error creating order: $e', e);
 
       // Try to create a fallback order through ShopBloc
       try {
-        // Create a fallback order ID if one wasn't set
-        String fallbackOrderId =
-            'order_${DateTime.now().millisecondsSinceEpoch}';
+        // Create a fallback order ID with transaction ID to prevent duplicates
+        String fallbackOrderId = 'order_fallback_${_txnUnique}_${DateTime.now().millisecondsSinceEpoch}';
 
         // Create a minimal ShopOrder
         final fallbackOrder = ShopOrder(
@@ -714,6 +767,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
           shippingAddress: _phoneController.text.trim(),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
+          transactionId: _txnUnique, // Add transaction ID to prevent duplicates
+          mpesaReceiptNumber: receiptNumber, // Add receipt number for reference
+        );
+
+        // Show error toast
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating order with items. Creating a minimal order.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
         );
 
         // Dispatch CreateOrderEvent to ShopBloc
@@ -725,8 +789,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         // Print to both console and developer log for visibility
         print('===== FALLBACK ORDER CREATED =====');
         print('Order ID: $fallbackOrderId');
-        print(
-            'User ID: ${widget.userId.isEmpty ? "guest_user" : widget.userId}');
+        print('User ID: ${widget.userId.isEmpty ? "guest_user" : widget.userId}');
         print('Phone: ${_phoneController.text.trim()}');
         print('Receipt: $receiptNumber');
         print('Transaction ID: $_txnUnique');
@@ -735,9 +798,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
         _logger.i('FALLBACK ORDER CREATED - ID: $fallbackOrderId | User: ${widget.userId} | Receipt: $receiptNumber | TXN: $_txnUnique');
 
+        // Update UI state
+        setState(() {
+          _isCreatingOrder = false;
+        });
+
         return true; // We created at least a minimal order through ShopBloc
       } catch (innerError) {
         _logger.e('Failed to create even fallback order: $innerError', innerError);
+        
+        // Update UI state
+        setState(() {
+          _isCreatingOrder = false;
+        });
+        
+        // Show error toast
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create order. Please contact support with your M-Pesa receipt.'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        
         return false;
       }
     }
@@ -844,6 +927,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _orderCreated = true;
           print('Test order creation result: $orderSuccess');
           _logger.i('Creating test order in error dialog with MPESA01. Success: $orderSuccess');
+          
+          // Send test order notification
+          if (orderSuccess) {
+            try {
+              await _notificationService.sendOrderCompletedNotification(
+                userId: widget.userId.isEmpty ? 'guest_user' : widget.userId,
+                orderId: 'test_order_$_txnUnique',
+                orderAmount: widget.amount,
+                paymentReceiptNumber: 'MPESA01',
+                isTestOrder: true,
+              );
+              _logger.i('Test order notification sent successfully');
+            } catch (e) {
+              _logger.e('Error sending test order notification: $e', e);
+              // Continue even if notification fails
+            }
+          }
         } else {
           print('Found existing order with transaction ID: $_txnUnique');
           for (var doc in existingOrders.docs) {
@@ -933,6 +1033,33 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _buildStatusWidget() {
+    // If order is being created, show a special loading indicator
+    if (_isCreatingOrder) {
+      return Column(
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.successColor),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Creating your order...',
+            style: TextStyle(
+                fontSize: 16, color: Theme.of(context).colorScheme.onPrimary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Please wait while we process your order',
+            style: TextStyle(
+                fontSize: 14, 
+                color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      );
+    }
+    
+    // Otherwise show normal payment status
     switch (_paymentStatus) {
       case PaymentStatus.initial:
         return const SizedBox.shrink();
@@ -962,8 +1089,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   fontSize: 16, color: Theme.of(context).colorScheme.onPrimary),
               textAlign: TextAlign.center,
             ),
-            if (_mpesaReceiptNumber != null) ...[
-              const SizedBox(height: 8),
+            if (_mpesaReceiptNumber != null) ...[              const SizedBox(height: 8),
               Text(
                 'M-Pesa Receipt: $_mpesaReceiptNumber',
                 style: TextStyle(

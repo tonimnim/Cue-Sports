@@ -7,6 +7,7 @@ import '../../domain/usecases/get_products_usecase.dart';
 import '../../domain/usecases/cart_usecases.dart';
 import '../../domain/usecases/order_usecases.dart';
 import '../../domain/entities/cart_item.dart';
+import '../../domain/entities/shop_order.dart';
 import 'shop_event.dart';
 import 'shop_state.dart';
 
@@ -430,56 +431,101 @@ class ShopBloc extends Bloc<ShopEvent, ShopState> {
 
   Future<void> _onCreateOrder(
       CreateOrderEvent event, Emitter<ShopState> emit) async {
+    // Set loading state with a specific isOrderCreating flag
     emit(state.copyWith(
-        status: ShopStatus.loading, clearError: true, clearSuccess: true));
+        status: ShopStatus.loading, 
+        clearError: true, 
+        clearSuccess: true,
+        isOrderCreating: true));
 
     _logger.i('Creating order for user: ${event.order.userId} with ${event.order.items.length} items');
     _logger.i('Order details: Total: ${event.order.total}, Payment method: ${event.order.paymentMethod}');
 
-    final result =
-        await createOrderUseCase(CreateOrderParams(order: event.order));
+    try {
+      // Add the order to local cache immediately for optimistic UI update
+      final localOrders = List<ShopOrder>.from(state.orders);
+      localOrders.add(event.order);
+      emit(state.copyWith(orders: localOrders, isOrderCreating: true));
+      
+      final result = await createOrderUseCase(CreateOrderParams(order: event.order));
 
-    result.fold(
-      (failure) {
-        _logger.e('Failed to create order: ${_mapFailureToMessage(failure)}');
-        emit(state.copyWith(
-          status: ShopStatus.error,
-          errorMessage: _mapFailureToMessage(failure),
-        ));
-      },
-      (orderId) async {
-        _logger.i('Order created successfully with ID: $orderId, now clearing cart');
-        // Clear the cart after successful order creation
-        _logger.i('Attempting to clear cart for user: ${event.order.userId} after order creation');
-        _logger.d('Current cart state before clearing: ${state.cartItems.length} items');
-        
-        final clearResult = await clearCartUseCase(ClearCartParams(userId: event.order.userId));
-        
-        await clearResult.fold(
-          (failure) async {
-            _logger.e('Failed to clear cart after order creation: ${_mapFailureToMessage(failure)}');
-            _logger.e('Cart clearing failure details: User ID: ${event.order.userId}, Order ID: $orderId');
-            emit(state.copyWith(
-              status: ShopStatus.loaded,
-              successMessage: 'Order created successfully: $orderId, but failed to clear cart: ${_mapFailureToMessage(failure)}',
-              clearError: true,
-            ));
-            _logger.d('State after cart clearing failure: ${state.cartItems.length} items still in cart');
-          },
-          (_) async {
-            _logger.i('Cart cleared successfully after order creation for user: ${event.order.userId}');
-            _logger.i('Order ID: $orderId, Items cleared: ${state.cartItems.length}');
-            emit(state.copyWith(
-              status: ShopStatus.loaded,
-              cartItems: [], // Clear cart items in state
-              successMessage: 'Order created successfully: $orderId',
-              clearError: true,
-            ));
-            _logger.d('State after cart clearing success: Cart items set to empty list');
-          },
-        );
-      },
-    );
+      return result.fold(
+        (failure) async {
+          _logger.e('Failed to create order: ${_mapFailureToMessage(failure)}');
+          // Remove the optimistically added order
+          final updatedOrders = List<ShopOrder>.from(state.orders)
+              .where((order) => order.id != event.order.id)
+              .toList();
+              
+          emit(state.copyWith(
+            status: ShopStatus.error,
+            orders: updatedOrders,
+            errorMessage: 'Failed to create order: ${_mapFailureToMessage(failure)}',
+            isOrderCreating: false,
+          ));
+          
+          // Don't clear the cart if order creation failed
+          return;
+        },
+        (orderId) async {
+          _logger.i('Order created successfully with ID: $orderId, now clearing cart');
+          
+          // Update the order in our local cache with the correct ID from Firestore
+          final updatedOrders = List<ShopOrder>.from(state.orders);
+          final orderIndex = updatedOrders.indexWhere((order) => order.id == event.order.id);
+          if (orderIndex >= 0) {
+            // If the temporary order exists in our list, update it with the real ID
+            final updatedOrder = event.order.copyWith(id: orderId);
+            updatedOrders[orderIndex] = updatedOrder;
+          }
+          
+          // Clear the cart after successful order creation
+          _logger.i('Attempting to clear cart for user: ${event.order.userId} after order creation');
+          _logger.d('Current cart state before clearing: ${state.cartItems.length} items');
+          
+          final clearResult = await clearCartUseCase(ClearCartParams(userId: event.order.userId));
+          
+          return clearResult.fold(
+            (failure) async {
+              _logger.e('Failed to clear cart after order creation: ${_mapFailureToMessage(failure)}');
+              _logger.e('Cart clearing failure details: User ID: ${event.order.userId}, Order ID: $orderId');
+              
+              emit(state.copyWith(
+                status: ShopStatus.loaded,
+                orders: updatedOrders,
+                successMessage: 'Order created successfully: $orderId, but failed to clear cart: ${_mapFailureToMessage(failure)}',
+                clearError: true,
+                isOrderCreating: false,
+              ));
+              
+              _logger.d('State after cart clearing failure: ${state.cartItems.length} items still in cart');
+            },
+            (_) async {
+              _logger.i('Cart cleared successfully after order creation for user: ${event.order.userId}');
+              _logger.i('Order ID: $orderId, Items cleared: ${state.cartItems.length}');
+              
+              emit(state.copyWith(
+                status: ShopStatus.loaded,
+                orders: updatedOrders,
+                cartItems: [], // Clear cart items in state
+                successMessage: 'Order created successfully: $orderId',
+                clearError: true,
+                isOrderCreating: false,
+              ));
+              
+              _logger.d('State after cart clearing success: Cart items set to empty list');
+            },
+          );
+        },
+      );
+    } catch (e) {
+      _logger.e('Unexpected error during order creation: $e');
+      emit(state.copyWith(
+        status: ShopStatus.error,
+        errorMessage: 'Unexpected error during order creation: $e',
+        isOrderCreating: false,
+      ));
+    }
   }
 
   Future<void> _onUpdateOrder(

@@ -18,6 +18,7 @@ class ShopState extends Equatable {
   final String? errorMessage;
   final bool isCartLoading;
   final bool isProductsLoading;
+  final bool isOrderCreating;
   final int cartItemCount;
 
   const ShopState({
@@ -33,6 +34,7 @@ class ShopState extends Equatable {
     this.errorMessage,
     this.isCartLoading = false,
     this.isProductsLoading = false,
+    this.isOrderCreating = false,
     this.cartItemCount = 0,
   });
 
@@ -51,6 +53,7 @@ class ShopState extends Equatable {
     String? errorMessage,
     bool? isCartLoading,
     bool? isProductsLoading,
+    bool? isOrderCreating,
     bool clearSuccess = false,
     bool clearError = false,
   }) {
@@ -74,6 +77,7 @@ class ShopState extends Equatable {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       isCartLoading: isCartLoading ?? this.isCartLoading,
       isProductsLoading: isProductsLoading ?? this.isProductsLoading,
+      isOrderCreating: isOrderCreating ?? this.isOrderCreating,
       cartItemCount: updatedCartItemCount,
     );
   }
@@ -93,6 +97,7 @@ class ShopState extends Equatable {
         errorMessage,
         isCartLoading,
         isProductsLoading,
+        isOrderCreating,
         cartItemCount,
       ];
 

@@ -61,3 +61,11 @@ class PermissionFailure extends Failure {
     String? code,
   }) : super(message: message, code: code);
 }
+
+/// Represents a failure that occurs when a resource is not found
+class NotFoundFailure extends Failure {
+  const NotFoundFailure({
+    required String message,
+    String? code,
+  }) : super(message: message, code: code);
+}

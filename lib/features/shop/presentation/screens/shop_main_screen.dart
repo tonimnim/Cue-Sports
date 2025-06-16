@@ -393,18 +393,20 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
               children: [
                 Center(
                   child: product.imageUrl.isNotEmpty
-                      ? ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16)),
-                          child: Image.network(
-                            product.imageUrl,
-                            height: 140,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                _buildPlaceholderImage(),
-                          ),
-                        )
+                      ? product.imageUrl.contains('via.placeholder.com') || product.imageUrl.contains('placeholder')
+                          ? _buildPlaceholderImage()
+                          : ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(16)),
+                              child: Image.network(
+                                product.imageUrl,
+                                height: 140,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _buildPlaceholderImage(),
+                              ),
+                            )
                       : _buildPlaceholderImage(),
                 ),
                 // Heart icon removed
@@ -556,18 +558,20 @@ class _ShopMainScreenState extends State<ShopMainScreen> {
                 children: [
                   Center(
                     child: product.imageUrl.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(16)),
-                            child: Image.network(
-                              product.imageUrl,
-                              height: double.infinity,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  _buildPlaceholderImage(),
-                            ),
-                          )
+                        ? product.imageUrl.contains('via.placeholder.com') || product.imageUrl.contains('placeholder')
+                            ? _buildPlaceholderImage()
+                            : ClipRRect(
+                                borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(16)),
+                                child: Image.network(
+                                  product.imageUrl,
+                                  height: double.infinity,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      _buildPlaceholderImage(),
+                                ),
+                              )
                         : _buildPlaceholderImage(),
                   ),
                   // Heart icon removed

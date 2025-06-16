@@ -4,6 +4,7 @@ import '../../shop/presentation/bloc/shop_bloc.dart';
 import '../../shop/presentation/bloc/shop_event.dart';
 import '../../tournaments/direct_implementation/tournament_service.dart';
 import '../../../core/services/logger_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/di/injection_container.dart' as di;
 
 /// Abstract interface for handling payment callbacks
@@ -167,6 +168,8 @@ class MerchandisePaymentCallback implements PaymentCallbackService {
   final LoggerService _logger = di.sl<LoggerService>();
   final ShopBloc? shopBloc; // Optional, can be passed in constructor
 
+  final NotificationService _notificationService = di.sl<NotificationService>();
+
   MerchandisePaymentCallback({this.shopBloc});
 
   @override
@@ -174,6 +177,17 @@ class MerchandisePaymentCallback implements PaymentCallbackService {
     try {
       _logger.i(
           'Processing successful merchandise payment for user: ${payment.userId}');
+
+      // Check if an order with this payment ID already exists
+      final existingOrdersQuery = await _firestore
+          .collection('orders')
+          .where('transactionId', isEqualTo: payment.transactionId)
+          .get();
+
+      if (existingOrdersQuery.docs.isNotEmpty) {
+        _logger.w('Order with transactionId ${payment.transactionId} already exists. Skipping order creation.');
+        return; // Exit early to prevent duplicate order
+      }
 
       // Get cart items from metadata or typeId (which is cartId)
       final cartId = payment.typeId;
@@ -199,23 +213,54 @@ class MerchandisePaymentCallback implements PaymentCallbackService {
         _logger.e('Error retrieving cart items for order creation: $e');
       }
 
-      // Create order
-      final orderId = 'order_${DateTime.now().millisecondsSinceEpoch}';
+      // Create order using a transaction for atomicity
+      final orderId = 'order_${payment.transactionId}_${DateTime.now().millisecondsSinceEpoch}';
       _logger.i('Creating order $orderId with ${cartItems.length} items');
       
-      await _firestore.collection('orders').doc(orderId).set({
-        'userId': payment.userId,
-        'orderNumber': orderId,
-        'items': cartItems,
-        'total': payment.amount,
-        'status': 'pending',
-        'paymentMethod': 'mpesa',
-        'mpesaReceiptNumber': payment.mpesaReceiptNumber,
-        'phoneNumber': payment.phoneNumber,
-        'transactionId': payment.transactionId,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
+      await _firestore.runTransaction((transaction) async {
+        // Double-check within transaction that order doesn't exist
+        final orderRef = _firestore.collection('orders').doc(orderId);
+        
+        // MODIFIED: Only check for existing orders, not existing payments
+        final existingOrderQuery = _firestore.collection('orders')
+            .where('transactionId', isEqualTo: payment.transactionId)
+            .limit(1);
+            
+        final orderSnapshot = await existingOrderQuery.get();
+        if (orderSnapshot.docs.isNotEmpty) {
+          _logger.w('Order with transactionId ${payment.transactionId} already exists. Skipping duplicate order creation.');
+          return; // Exit transaction without creating order
+        }
+        
+        // Create the order
+        transaction.set(orderRef, {
+          'userId': payment.userId,
+          'orderNumber': orderId,
+          'items': cartItems,
+          'total': payment.amount,
+          'status': 'pending',
+          'paymentMethod': 'mpesa',
+          'mpesaReceiptNumber': payment.mpesaReceiptNumber,
+          'phoneNumber': payment.phoneNumber,
+          'transactionId': payment.transactionId,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       });
+
+      // Send order completion notification
+      try {
+        await _notificationService.sendOrderCompletedNotification(
+          userId: payment.userId,
+          orderId: orderId,
+          orderAmount: payment.amount,
+          paymentReceiptNumber: payment.mpesaReceiptNumber ?? '',
+        );
+        _logger.i('Order completion notification sent successfully');
+      } catch (e) {
+        _logger.e('Error sending order completion notification: $e');
+        // Continue with the process even if notification fails
+      }
 
       // Clear cart if ShopBloc is available
       if (shopBloc != null) {

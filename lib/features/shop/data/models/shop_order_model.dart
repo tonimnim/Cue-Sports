@@ -15,6 +15,8 @@ class ShopOrderModel extends ShopOrder {
     required String shippingAddress,
     required DateTime createdAt,
     required DateTime updatedAt,
+    String? transactionId,
+    String? mpesaReceiptNumber,
   }) : super(
           id: id,
           userId: userId,
@@ -26,6 +28,8 @@ class ShopOrderModel extends ShopOrder {
           shippingAddress: shippingAddress,
           createdAt: createdAt,
           updatedAt: updatedAt,
+          transactionId: transactionId,
+          mpesaReceiptNumber: mpesaReceiptNumber,
         );
 
   factory ShopOrderModel.fromFirestore(DocumentSnapshot doc) {
@@ -55,6 +59,8 @@ class ShopOrderModel extends ShopOrder {
       updatedAt: data['updatedAt'] != null 
           ? (data['updatedAt'] as Timestamp).toDate() 
           : DateTime.now(),
+      transactionId: data['transactionId'],
+      mpesaReceiptNumber: data['mpesaReceiptNumber'],
     );
   }
 
@@ -89,6 +95,8 @@ class ShopOrderModel extends ShopOrder {
       shippingAddress: order.shippingAddress,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      transactionId: order.transactionId,
+      mpesaReceiptNumber: order.mpesaReceiptNumber,
     );
   }
 
@@ -117,6 +125,8 @@ class ShopOrderModel extends ShopOrder {
       updatedAt: map['updatedAt'] != null 
           ? DateTime.parse(map['updatedAt'] as String)
           : DateTime.now(),
+      transactionId: map['transactionId'],
+      mpesaReceiptNumber: map['mpesaReceiptNumber'],
     );
   }
 
@@ -131,6 +141,8 @@ class ShopOrderModel extends ShopOrder {
       'shippingAddress': shippingAddress,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'transactionId': transactionId,
+      'mpesaReceiptNumber': mpesaReceiptNumber,
     };
   }
 
@@ -146,6 +158,8 @@ class ShopOrderModel extends ShopOrder {
       shippingAddress: shippingAddress,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      transactionId: transactionId,
+      mpesaReceiptNumber: mpesaReceiptNumber,
     );
   }
-} 
+}

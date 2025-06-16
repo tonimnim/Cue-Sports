@@ -290,10 +290,34 @@ class ShopRemoteDataSourceImpl implements ShopRemoteDataSource {
   @override
   Future<String> createOrder(ShopOrderModel order) async {
     try {
-      final docRef =
-          await _firebaseServices.ordersCollection.add(order.toFirestore());
-      return docRef.id;
+      // Check if an order with the same ID already exists to prevent duplicates
+      if (order.id.isNotEmpty) {
+        final existingOrder = await _firebaseServices.ordersCollection.doc(order.id).get();
+        if (existingOrder.exists) {
+          _logger.w('Order with ID ${order.id} already exists. Returning existing ID.');
+          return order.id;
+        }
+      }
+      
+      // Use a transaction for atomicity
+      String orderId = '';
+      await _firebaseServices.firestore.runTransaction((transaction) async {
+        // Create a document reference with the provided ID or generate a new one
+        final docRef = order.id.isNotEmpty
+            ? _firebaseServices.ordersCollection.doc(order.id)
+            : _firebaseServices.ordersCollection.doc();
+        
+        // Set the order data in the transaction
+        transaction.set(docRef, order.toFirestore());
+        
+        // Store the document ID for return
+        orderId = docRef.id;
+      });
+      
+      _logger.i('Successfully created order with ID: $orderId');
+      return orderId;
     } catch (e) {
+      _logger.e('Failed to create order: $e');
       throw ServerException('Failed to create order: $e');
     }
   }
